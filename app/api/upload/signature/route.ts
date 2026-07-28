@@ -14,12 +14,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Cloudinary credentials missing" }, { status: 500 })
     }
 
-    const timestamp = Math.round(Date.now() / 1000)
+        const timestamp = Math.round(Date.now() / 1000)
     const signature = cloudinary.utils.api_sign_request(
         {
             timestamp,
             folder: folder || "vibeztube",
-            resource_type: resourceType || "auto",
         },
         process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET as string,
     )

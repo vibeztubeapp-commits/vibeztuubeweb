@@ -3,6 +3,7 @@ import { getFunctions, httpsCallable } from "firebase/functions"
 import app from "@/lib/firebase"
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage"
 import { db, storage, auth } from "@/lib/firebase"
+export { db }
 import type { Post, User } from "@/lib/production-data"
 import type { User as FirebaseUser } from "firebase/auth"
 
@@ -16,21 +17,35 @@ export type ProfileData = {
     email?: string | null
     phoneNumber?: string | null
     createdAt?: unknown
+    location?: string
+    website?: string
+    verified?: boolean
+    verifiedBadge?: "blue" | "gray" | "purple" | "gold" | "gov" | null
+    dob?: string
 }
 
 export async function ensureProfile(user: FirebaseUser, overrides: Partial<ProfileData> = {}) {
+    // Give the authentication token a brief moment to propagate to the Firestore client
+    await new Promise((resolve) => setTimeout(resolve, 500))
     const profileRef = doc(db, "profiles", user.uid)
     const existing = await getDoc(profileRef)
+    const existingData = existing.exists() ? (existing.data() as ProfileData) : ({} as Partial<ProfileData>)
+
     const nextProfile: ProfileData = {
         uid: user.uid,
-        displayName: overrides.displayName || user.displayName || user.email?.split("@")[0] || "New user",
-        username: overrides.username || user.email?.split("@")[0] || `user${user.uid.slice(0, 6)}`,
-        bio: overrides.bio || "",
-        avatarUrl: overrides.avatarUrl || user.photoURL || "",
-        bannerUrl: overrides.bannerUrl || "",
-        email: overrides.email ?? user.email,
-        phoneNumber: overrides.phoneNumber ?? user.phoneNumber,
-        createdAt: existing.exists() ? existing.data().createdAt : serverTimestamp(),
+        displayName: overrides.displayName || existingData.displayName || user.displayName || user.email?.split("@")[0] || "New user",
+        username: (overrides.username || existingData.username || user.email?.split("@")[0] || `user${user.uid.slice(0, 6)}`).toLowerCase(),
+        bio: overrides.bio || existingData.bio || "",
+        avatarUrl: overrides.avatarUrl || existingData.avatarUrl || user.photoURL || "",
+        bannerUrl: overrides.bannerUrl || existingData.bannerUrl || "",
+        email: overrides.email ?? existingData.email ?? user.email,
+        phoneNumber: overrides.phoneNumber ?? existingData.phoneNumber ?? user.phoneNumber,
+        location: overrides.location ?? existingData.location ?? "",
+        website: overrides.website ?? existingData.website ?? "",
+        verified: overrides.verified ?? existingData.verified ?? false,
+        verifiedBadge: overrides.verifiedBadge ?? existingData.verifiedBadge ?? null,
+        dob: overrides.dob || existingData.dob || "",
+        createdAt: existingData.createdAt || serverTimestamp(),
     }
     await setDoc(profileRef, nextProfile, { merge: true })
     return nextProfile
@@ -42,12 +57,14 @@ export async function getUserProfile(uid: string): Promise<ProfileData | null> {
     return snapshot.exists() ? (snapshot.data() as ProfileData) : null
 }
 
-export async function createPost(input: { authorId: string; text: string; media?: Array<{ type: string; src: string }> }) {
+export async function createPost(input: { authorId: string; text: string; media?: Array<{ type: string; src: string }>; audience?: string; location?: string }) {
     const postsRef = collection(db, "posts")
-    await addDoc(postsRef, {
+    const docRef = await addDoc(postsRef, {
         authorId: input.authorId,
         text: input.text,
         media: input.media || [],
+        audience: input.audience || "Everyone",
+        location: input.location || null,
         likes: 0,
         comments: 0,
         reposts: 0,
@@ -55,24 +72,55 @@ export async function createPost(input: { authorId: string; text: string; media?
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     })
+    await logUserActivity("create_post", { postId: docRef.id, text: input.text })
 }
 
-export async function createComment(postId: string, input: { authorId: string; text: string }) {
+export async function createComment(postId: string, input: { authorId: string; text: string; parentCommentId?: string | null }) {
     const commentsRef = collection(db, "posts", postId, "comments")
-    await addDoc(commentsRef, {
+    const docRef = await addDoc(commentsRef, {
         authorId: input.authorId,
         text: input.text,
+        parentCommentId: input.parentCommentId || null,
+        likes: 0,
+        comments: 0,
+        reposts: 0,
         createdAt: serverTimestamp(),
     })
+    if (input.parentCommentId) {
+        const parentCommentRef = doc(db, "posts", postId, "comments", input.parentCommentId)
+        await updateDoc(parentCommentRef, { comments: increment(1) })
+    } else {
+        const postRef = doc(db, "posts", postId)
+        await updateDoc(postRef, { comments: increment(1) })
+    }
+    await logUserActivity("comment", { postId, commentId: docRef.id, text: input.text })
+
+    const postRef = doc(db, "posts", postId)
+    const postSnap = await getDoc(postRef)
+    if (postSnap.exists()) {
+        const postData = postSnap.data()
+        if (postData.authorId && postData.authorId !== input.authorId) {
+            await addDoc(collection(db, "notifications"), {
+                recipientId: postData.authorId,
+                senderId: input.authorId,
+                type: "comment",
+                postId: postId,
+                text: "commented on your post",
+                read: false,
+                createdAt: serverTimestamp()
+            })
+        }
+    }
 }
 
 export async function createReply(postId: string, commentId: string, input: { authorId: string; text: string }) {
     const repliesRef = collection(db, "posts", postId, "comments", commentId, "replies")
-    await addDoc(repliesRef, {
+    const docRef = await addDoc(repliesRef, {
         authorId: input.authorId,
         text: input.text,
         createdAt: serverTimestamp(),
     })
+    await logUserActivity("reply", { postId, commentId, replyId: docRef.id, text: input.text })
 }
 
 export async function toggleLike(postId: string) {
@@ -82,10 +130,29 @@ export async function toggleLike(postId: string) {
     const likeSnap = await getDoc(likeRef)
     if (likeSnap.exists()) {
         await deleteDoc(likeRef)
+        await logUserActivity("unlike", { postId })
     } else {
         await setDoc(likeRef, { createdAt: serverTimestamp() })
         const postRef = doc(db, "posts", postId)
         await updateDoc(postRef, { likes: increment(1) })
+        await logUserActivity("like", { postId })
+
+        // Create notification for post author
+        const postSnap = await getDoc(postRef)
+        if (postSnap.exists()) {
+            const postData = postSnap.data()
+            if (postData.authorId && postData.authorId !== uid) {
+                await addDoc(collection(db, "notifications"), {
+                    recipientId: postData.authorId,
+                    senderId: uid,
+                    type: "like",
+                    postId: postId,
+                    text: "liked your post",
+                    read: false,
+                    createdAt: serverTimestamp()
+                })
+            }
+        }
     }
 }
 
@@ -106,6 +173,17 @@ export async function followUser(targetUid: string) {
     if (!uid || uid === targetUid) return
     const followRef = doc(db, "follows", `${uid}_${targetUid}`)
     await setDoc(followRef, { followerUid: uid, followeeUid: targetUid, createdAt: serverTimestamp() })
+    await logUserActivity("follow", { targetUid })
+
+    // Create follow notification
+    await addDoc(collection(db, "notifications"), {
+        recipientId: targetUid,
+        senderId: uid,
+        type: "follow",
+        text: "started following you",
+        read: false,
+        createdAt: serverTimestamp()
+    })
 }
 
 export async function getUserFeed(): Promise<Post[]> {
@@ -118,12 +196,15 @@ export async function getUserFeed(): Promise<Post[]> {
             return {
                 id: doc.id,
                 authorId: data.authorId || "guest",
+                repostOf: data.repostOf || null,
                 timeAgo: data.timeAgo || "just now",
                 text: data.text || "",
                 media: data.media || [],
                 likes: Number(data.likes || 0),
                 comments: Number(data.comments || 0),
                 reposts: Number(data.reposts || 0),
+                bookmarks: Number(data.bookmarks || 0),
+                shares: Number(data.shares || 0),
                 views: String(data.views || "0"),
                 liked: Boolean(data.liked),
             }
@@ -135,6 +216,34 @@ export async function getUserFeed(): Promise<Post[]> {
 
 export async function fetchPosts(): Promise<Post[]> {
     return getUserFeed()
+}
+
+export function subscribePosts(callback: (posts: Post[]) => void) {
+    const postsRef = collection(db, "posts")
+    const q = query(postsRef, orderBy("createdAt", "desc"), limit(20))
+    return onSnapshot(q, (snapshot) => {
+        const postsList = snapshot.docs.map((doc) => {
+            const data = doc.data() as DocumentData
+            return {
+                id: doc.id,
+                authorId: data.authorId || "guest",
+                repostOf: data.repostOf || null,
+                timeAgo: data.timeAgo || "just now",
+                text: data.text || "",
+                media: data.media || [],
+                likes: Number(data.likes || 0),
+                comments: Number(data.comments || 0),
+                reposts: Number(data.reposts || 0),
+                bookmarks: Number(data.bookmarks || 0),
+                shares: Number(data.shares || 0),
+                views: String(data.views || "0"),
+                liked: Boolean(data.liked),
+            }
+        })
+        callback(postsList)
+    }, (error) => {
+        console.error("Error listening to posts:", error)
+    })
 }
 
 export async function uploadMedia(file: File, uid: string) {
@@ -195,17 +304,52 @@ export async function sendMessage(conversationId: string, input: { senderUid: st
 }
 
 export async function searchUsers(queryText: string) {
+    const cleanQuery = queryText.startsWith("@") ? queryText.slice(1) : queryText
     const usersRef = collection(db, "profiles")
-    const q = query(usersRef, where("displayName", ">=", queryText), where("displayName", "<=", `${queryText}\uf8ff`))
-    const snapshot = await getDocs(q)
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    
+    const qName = query(usersRef, where("displayName", ">=", queryText), where("displayName", "<=", `${queryText}\uf8ff`))
+    const qUsername = query(usersRef, where("username", ">=", cleanQuery.toLowerCase()), where("username", "<=", `${cleanQuery.toLowerCase()}\uf8ff`))
+    
+    const [snapName, snapUsername] = await Promise.all([
+        getDocs(qName),
+        getDocs(qUsername)
+    ])
+    
+    const resultMap = new Map<string, any>()
+    snapName.docs.forEach((doc) => {
+        resultMap.set(doc.id, { id: doc.id, ...doc.data() })
+    })
+    snapUsername.docs.forEach((doc) => {
+        resultMap.set(doc.id, { id: doc.id, ...doc.data() })
+    })
+    
+    return Array.from(resultMap.values())
 }
 
 export async function isUsernameAvailable(username: string) {
+    const cleanUsername = username.startsWith("@") ? username.slice(1).toLowerCase() : username.toLowerCase()
+    
+    // Check reservations collection
+    const reservationRef = doc(db, "username-reservations", cleanUsername)
+    const reservationSnap = await getDoc(reservationRef)
+    if (reservationSnap.exists()) {
+        return false
+    }
+
+    // Check profiles collection
     const profilesRef = collection(db, "profiles")
-    const q = query(profilesRef, where("username", "==", username), limit(1))
+    const q = query(profilesRef, where("username", "==", cleanUsername), limit(1))
     const snapshot = await getDocs(q)
     return snapshot.empty
+}
+
+export async function getEmailByUsername(username: string): Promise<string | null> {
+    const cleanUsername = username.startsWith("@") ? username.slice(1).toLowerCase() : username.toLowerCase()
+    const profilesRef = collection(db, "profiles")
+    const q = query(profilesRef, where("username", "==", cleanUsername), limit(1))
+    const snapshot = await getDocs(q)
+    if (snapshot.empty) return null
+    return (snapshot.docs[0].data() as ProfileData).email || null
 }
 
 export async function reserveUsername(username: string) {
@@ -213,26 +357,34 @@ export async function reserveUsername(username: string) {
         const functions = getFunctions(app)
         const reserve = httpsCallable(functions, "reserveUsername")
         const res = await reserve({ username })
-        return res.data?.ok === true
+        return (res.data as { ok?: boolean })?.ok === true
     } catch (err: any) {
         // If function indicates already-exists, treat as unavailable
         if (err?.code === 'already-exists' || err?.details === 'username taken') return false
-        // For other errors, rethrow
+        
+        // Fallback: If Cloud Functions are not deployed/configured (e.g. throwing internal or not-found errors),
+        // query Firestore directly for username availability.
+        try {
+            console.warn("Cloud function failed, falling back to Firestore query:", err)
+            const available = await isUsernameAvailable(username)
+            return available
+        } catch (fallbackErr) {
+            console.error("Firestore username check fallback also failed:", fallbackErr)
+        }
         throw err
     }
 }
 
 export async function confirmUsernameReservation(username: string, uid: string) {
-    const ref = doc(db, "username-reservations", username)
+    const ref = doc(db, "username-reservations", username.toLowerCase())
     await setDoc(ref, { reserved: true, reservedAt: serverTimestamp(), uid }, { merge: true })
 }
 
-export async function uploadToCloudinary(file: File, folder = "vibeztube") {
-    // Request a signature from our server endpoint
+export async function uploadToCloudinary(file: File, folder = "vibeztube", onProgress?: (percent: number) => void) {
     const res = await fetch("/api/upload/signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folder, resourceType: "image" }),
+        body: JSON.stringify({ folder }),
     })
     if (!res.ok) throw new Error("Failed to get upload signature")
     const { apiKey, cloudName, signature, timestamp } = await res.json()
@@ -244,12 +396,199 @@ export async function uploadToCloudinary(file: File, folder = "vibeztube") {
     form.append("signature", signature)
     form.append("folder", folder)
 
-    const upload = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
-        method: "POST",
-        body: form,
+    return new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, true)
+        if (xhr.upload && onProgress) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100)
+                    onProgress(percent)
+                }
+            }
+        }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText)
+                    resolve(data.secure_url)
+                } catch (e) {
+                    reject(new Error("Failed to parse Cloudinary response"))
+                }
+            } else {
+                reject(new Error(`Cloudinary upload failed: ${xhr.statusText}`))
+            }
+        }
+        xhr.onerror = () => reject(new Error("Network error during Cloudinary upload"))
+        xhr.send(form)
     })
+}
 
-    if (!upload.ok) throw new Error("Cloudinary upload failed")
-    const data = await upload.json()
-    return data.secure_url as string
+export async function logUserActivity(activityType: string, details: Record<string, any> = {}) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    try {
+        await addDoc(collection(db, "activities"), {
+            uid,
+            type: activityType,
+            details,
+            createdAt: serverTimestamp()
+        })
+    } catch (e) {
+        console.error("Activity logging failed", e)
+    }
+}
+
+export async function unfollowUser(targetUid: string) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const followRef = doc(db, "follows", `${uid}_${targetUid}`)
+    await deleteDoc(followRef)
+    await logUserActivity("unfollow", { targetUid })
+}
+
+export async function updateUserProfile(data: Partial<ProfileData>) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const profileRef = doc(db, "profiles", uid)
+    await updateDoc(profileRef, data)
+    await logUserActivity("update_profile", data)
+}
+
+export async function toggleLikePost(postId: string, currentLiked: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const postRef = doc(db, "posts", postId)
+    const likeRef = doc(db, "posts", postId, "likes", uid)
+
+    if (currentLiked) {
+        await deleteDoc(likeRef)
+        await updateDoc(postRef, { likes: increment(-1) })
+    } else {
+        await setDoc(likeRef, { uid, createdAt: serverTimestamp() })
+        await updateDoc(postRef, { likes: increment(1) })
+
+        const postSnap = await getDoc(postRef)
+        if (postSnap.exists()) {
+            const postData = postSnap.data()
+            if (postData.authorId && postData.authorId !== uid) {
+                await addDoc(collection(db, "notifications"), {
+                    recipientId: postData.authorId,
+                    senderId: uid,
+                    type: "like",
+                    postId: postId,
+                    text: "liked your post",
+                    read: false,
+                    createdAt: serverTimestamp()
+                })
+            }
+        }
+    }
+}
+
+export async function toggleRepostPost(postId: string, currentReposted: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const postRef = doc(db, "posts", postId)
+    const repostRef = doc(db, "posts", postId, "reposts", uid)
+
+    if (currentReposted) {
+        await deleteDoc(repostRef)
+        await updateDoc(postRef, { reposts: increment(-1) })
+        // Remove repost document from feed
+        const q = query(collection(db, "posts"), where("repostOf", "==", postId), where("authorId", "==", uid))
+        const snap = await getDocs(q)
+        for (const docSnap of snap.docs) {
+            await deleteDoc(doc(db, "posts", docSnap.id))
+        }
+    } else {
+        await setDoc(repostRef, { uid, createdAt: serverTimestamp() })
+        await updateDoc(postRef, { reposts: increment(1) })
+        // Create repost document on feed
+        await addDoc(collection(db, "posts"), {
+            authorId: uid,
+            repostOf: postId,
+            text: "",
+            media: [],
+            likes: 0,
+            comments: 0,
+            reposts: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        })
+    }
+}
+
+export async function toggleLikeComment(postId: string, commentId: string, currentLiked: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const commentRef = doc(db, "posts", postId, "comments", commentId)
+    const likeRef = doc(db, "posts", postId, "comments", commentId, "likes", uid)
+
+    if (currentLiked) {
+        await deleteDoc(likeRef)
+        await updateDoc(commentRef, { likes: increment(-1) })
+    } else {
+        await setDoc(likeRef, { uid, createdAt: serverTimestamp() })
+        await updateDoc(commentRef, { likes: increment(1) })
+    }
+}
+
+export async function toggleRepostComment(postId: string, commentId: string, currentReposted: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const commentRef = doc(db, "posts", postId, "comments", commentId)
+    const repostRef = doc(db, "posts", postId, "comments", commentId, "reposts", uid)
+
+    if (currentReposted) {
+        await deleteDoc(repostRef)
+        await updateDoc(commentRef, { reposts: increment(-1) })
+    } else {
+        await setDoc(repostRef, { uid, createdAt: serverTimestamp() })
+        await updateDoc(commentRef, { reposts: increment(1) })
+    }
+}
+
+export async function incrementPostViews(postId: string) {
+    const postRef = doc(db, "posts", postId)
+    await updateDoc(postRef, { views: increment(1) })
+}
+
+export async function toggleBookmarkPost(postId: string, currentBookmarked: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const postRef = doc(db, "posts", postId)
+    const bookmarkRef = doc(db, "bookmarks", `${uid}_${postId}`)
+
+    if (currentBookmarked) {
+        await deleteDoc(bookmarkRef)
+        await updateDoc(postRef, { bookmarks: increment(-1) })
+    } else {
+        await setDoc(bookmarkRef, {
+            uid,
+            postId,
+            createdAt: serverTimestamp()
+        })
+        await updateDoc(postRef, { bookmarks: increment(1) })
+    }
+}
+
+export async function toggleBookmarkComment(postId: string, commentId: string, currentBookmarked: boolean) {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const commentRef = doc(db, "posts", postId, "comments", commentId)
+    const bookmarkRef = doc(db, "bookmarks", `${uid}_${commentId}`)
+
+    if (currentBookmarked) {
+        await deleteDoc(bookmarkRef)
+        await updateDoc(commentRef, { bookmarks: increment(-1) })
+    } else {
+        await setDoc(bookmarkRef, {
+            uid,
+            postId,
+            commentId,
+            createdAt: serverTimestamp()
+        })
+        await updateDoc(commentRef, { bookmarks: increment(1) })
+    }
 }

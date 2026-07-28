@@ -69,9 +69,24 @@ export function RightRail() {
         </ul>
       </section>
 
-      <footer className="px-2 text-xs text-muted-foreground">
+      <footer className="px-2 text-xs text-muted-foreground space-y-2">
+        <div className="flex flex-wrap gap-x-2 gap-y-1">
+          <Link href="/terms" className="hover:underline">Terms of Service</Link>
+          <span>&middot;</span>
+          <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
+          <span>&middot;</span>
+          <Link href="/cookies" className="hover:underline">Cookie Policy</Link>
+          <span>&middot;</span>
+          <Link href="/community-guidelines" className="hover:underline">Guidelines</Link>
+          <span>&middot;</span>
+          <Link href="/safety" className="hover:underline">Safety Center</Link>
+          <span>&middot;</span>
+          <Link href="/help" className="hover:underline">Help</Link>
+          <span>&middot;</span>
+          <Link href="/contact" className="hover:underline">Contact</Link>
+        </div>
         <p className="leading-relaxed">
-          Your feed, profile, messages, and live spaces will populate from Firebase once the backend is connected.
+          &copy; {new Date().getFullYear()} VibezTube. All rights reserved.
         </p>
       </footer>
     </aside>

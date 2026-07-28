@@ -1,8 +1,8 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import type { User } from "@/lib/production-data"
 
 function initials(name: string) {
+  if (!name) return "U"
   return name
     .split(" ")
     .map((w) => w[0])
@@ -16,17 +16,21 @@ export function UserAvatar({
   className,
   ring,
 }: {
-  user: User
+  user: any
   className?: string
   ring?: boolean
 }) {
+  const avatarUrl = user?.avatarUrl || user?.avatar
   return (
     <Avatar className={cn(ring && "ring-2 ring-primary ring-offset-2 ring-offset-background", className)}>
+      {avatarUrl ? (
+        <AvatarImage src={avatarUrl} alt={user?.displayName || user?.name || "avatar"} />
+      ) : null}
       <AvatarFallback
         className="font-semibold text-white"
-        style={{ backgroundColor: user.avatarColor }}
+        style={{ backgroundColor: user?.avatarColor || "oklch(0.62 0.14 240)" }}
       >
-        {initials(user.name)}
+        {initials(user?.displayName || user?.name || "User")}
       </AvatarFallback>
     </Avatar>
   )

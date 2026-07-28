@@ -12,12 +12,15 @@ export type User = {
 export type Post = {
     id: string
     authorId: string
+    repostOf?: string | null
     timeAgo: string
     text: string
     media?: { type: "image" | "video"; src: string; aspect?: "video" | "square" | "portrait" }[]
     likes: number
     comments: number
     reposts: number
+    bookmarks?: number
+    shares?: number
     views: string
     liked?: boolean
 }
@@ -82,7 +85,7 @@ export const currentUser: User = {
     name: "Sign in",
     username: "guest",
     avatarColor: "oklch(0.62 0.14 240)",
-    bio: "Profile data will appear once Firebase authentication is configured.",
+    bio: "Join the conversation on VibezTube.",
     followers: 0,
     following: 0,
 }

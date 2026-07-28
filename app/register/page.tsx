@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Camera, Eye, EyeOff, Mail, Lock, User, CalendarDays, AtSign } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
@@ -10,23 +10,66 @@ import { Input } from "@/components/ui/input"
 
 const verifiedDomains = ["gmail.com", "outlook.com", "live.com", "hotmail.com", "yahoo.com", "icloud.com"]
 
+const months = [
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+]
+const days = Array.from({ length: 31 }, (_, i) => String(i + 1))
+const currentYear = new Date().getFullYear()
+const years = Array.from({ length: 110 }, (_, i) => String(currentYear - i))
+
 export default function RegisterPage() {
     const { signUpWithEmail } = useAuth()
+    const [showSplash, setShowSplash] = useState(true)
     const [step, setStep] = useState(0)
     const [displayName, setDisplayName] = useState("")
     const [username, setUsername] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const [dob, setDob] = useState("")
+    const [dobMonth, setDobMonth] = useState("")
+    const [dobDay, setDobDay] = useState("")
+    const [dobYear, setDobYear] = useState("")
     const [showPassword, setShowPassword] = useState(false)
     const [avatar, setAvatar] = useState<string | null>(null)
     const [avatarFile, setAvatarFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState("")
 
+    const dob = useMemo(() => {
+        if (!dobYear || !dobMonth || !dobDay) return ""
+        return `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
+    }, [dobYear, dobMonth, dobDay])
+
+    const isAgeValid = useMemo(() => {
+        if (!dob) return false
+        const birthDate = new Date(dob)
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const m = today.getMonth() - birthDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+        }
+        return age >= 13
+    }, [dob])
+
+    useEffect(() => {
+        const timer = setTimeout(() => setShowSplash(false), 2000)
+        return () => clearTimeout(timer)
+    }, [])
+
     const isEmailValid = useMemo(() => {
-        const domain = email.split("@")[1]?.toLowerCase() || ""
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && verifiedDomains.includes(domain)
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|live\.com|hotmail\.com|yahoo\.com|icloud\.com)$/i
+        return emailRegex.test(email.trim())
     }, [email])
 
     const canAdvance = useMemo(() => {
@@ -34,9 +77,20 @@ export default function RegisterPage() {
         if (step === 1) return username.trim().length >= 3
         if (step === 2) return isEmailValid
         if (step === 3) return password.length >= 8
-        if (step === 4) return Boolean(dob)
+        if (step === 4) return isAgeValid
         return Boolean(avatar)
-    }, [avatar, displayName, dob, isEmailValid, password, step, username])
+    }, [avatar, displayName, isAgeValid, isEmailValid, password, step, username])
+
+    if (showSplash) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+                <div className="text-center">
+                    <img src="/logo.png" alt="VibezTube Logo" className="mx-auto h-24 w-auto mb-4 animate-pulse" />
+                    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">VibezTube</p>
+                </div>
+            </div>
+        )
+    }
 
     const handleSubmit = async () => {
         setLoading(true)
@@ -61,7 +115,7 @@ export default function RegisterPage() {
                 }
             }
 
-            await signUpWithEmail(email, password, { displayName, username, avatarUrl, createdAt: undefined })
+            await signUpWithEmail(email, password, { displayName, username, avatarUrl, dob, createdAt: undefined })
         } catch (error) {
             setMessage(error instanceof Error ? error.message : "Unable to create account")
         } finally {
@@ -85,6 +139,7 @@ export default function RegisterPage() {
         <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
             <div className="w-full max-w-sm bg-transparent p-0">
                 <div className="mb-6 text-center">
+                    <img src="/logo.png" alt="VibezTube Logo" className="mx-auto h-20 w-auto mb-4" />
                     <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">VibezTube</p>
                     <h1 className="mt-2 text-2xl font-bold">Create your account</h1>
                     <p className="mt-2 text-sm text-muted-foreground">A guided setup for your profile, identity, and security.</p>
@@ -138,10 +193,43 @@ export default function RegisterPage() {
                     {step === 4 ? (
                         <div className="space-y-3">
                             <label className="block text-sm font-medium text-foreground text-center">Date of birth</label>
-                            <div className="mt-2 mx-auto w-full max-w-xs flex items-center gap-2 bg-transparent px-2 py-2">
-                                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                                <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="border-0 bg-transparent p-0 shadow-none w-full" />
+                            <div className="mt-2 mx-auto w-full max-w-xs flex gap-2">
+                                <select
+                                    value={dobMonth}
+                                    onChange={(e) => setDobMonth(e.target.value)}
+                                    className="flex-1 rounded-md border border-input bg-background px-2 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                >
+                                    <option value="" disabled>Month</option>
+                                    {months.map((m) => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={dobDay}
+                                    onChange={(e) => setDobDay(e.target.value)}
+                                    className="w-20 rounded-md border border-input bg-background px-2 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                >
+                                    <option value="" disabled>Day</option>
+                                    {days.map((d) => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={dobYear}
+                                    onChange={(e) => setDobYear(e.target.value)}
+                                    className="w-24 rounded-md border border-input bg-background px-2 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                >
+                                    <option value="" disabled>Year</option>
+                                    {years.map((y) => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
                             </div>
+                            {dob && !isAgeValid ? (
+                                <p className="text-xs text-red-500 text-center mt-1 animate-pulse">
+                                    You must be at least 13 years old to register.
+                                </p>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -183,6 +271,10 @@ export default function RegisterPage() {
                         Already have an account? <Link href="/login" className="text-primary">Sign in</Link>
                     </p>
                     {message ? <p className="text-sm text-muted-foreground text-center">{message}</p> : null}
+                    
+                    <p className="mt-8 text-[10px] text-muted-foreground text-center leading-relaxed px-4">
+                      By continuing, you agree to our Terms, Privacy Policy and Cookie Use.
+                    </p>
                 </div>
             </div>
         </div>

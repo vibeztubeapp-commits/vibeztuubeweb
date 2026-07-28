@@ -5,7 +5,7 @@ import { FeedColumn } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { Composer } from "@/components/composer"
 import { PostCard } from "@/components/post-card"
-import { fetchPosts } from "@/lib/services"
+import { subscribePosts } from "@/lib/services"
 import type { Post } from "@/lib/production-data"
 
 const tabs = ["For you", "Following"]
@@ -14,7 +14,7 @@ export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([])
 
   useEffect(() => {
-    void fetchPosts().then(setPosts)
+    return subscribePosts(setPosts)
   }, [])
 
   return (
@@ -48,7 +48,7 @@ export default function HomePage() {
             <div className="px-4 py-12 text-center">
               <p className="text-lg font-semibold">No posts yet.</p>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Once Firebase is connected, your feed will populate with real posts from Firestore.
+                Follow users or write a post to see what's happening.
               </p>
             </div>
           )}

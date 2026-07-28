@@ -1,57 +1,512 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { ShieldCheck, LogOut, Mail } from "lucide-react"
-import { AuthGuard } from "@/components/auth-guard"
+import { useEffect, useState, useTransition } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { Button } from "@/components/ui/button"
-import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
+import { AuthGuard } from "@/components/auth-guard"
+import { FeedColumn } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
-import { getUserProfile } from "@/lib/services"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { UserAvatar } from "@/components/user-avatar"
+import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation } from "@/lib/services"
+import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc } from "firebase/firestore"
+import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2 } from "lucide-react"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 function ProfileView() {
-  const { user, signOut, verifyEmail } = useAuth()
+  const { user, signOut } = useAuth()
   const [profile, setProfile] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState("posts")
+  const [posts, setPosts] = useState<any[]>([])
+  const [replies, setReplies] = useState<any[]>([])
+  const [media, setMedia] = useState<any[]>([])
+  const [likes, setLikes] = useState<any[]>([])
+  const [reposts, setReposts] = useState<any[]>([])
+
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editDisplayName, setEditDisplayName] = useState("")
+  const [editUsername, setEditUsername] = useState("")
+  const [editBio, setEditBio] = useState("")
+  const [editLocation, setEditLocation] = useState("")
+  const [editWebsite, setEditWebsite] = useState("")
+  const [editAvatarUrl, setEditAvatarUrl] = useState("")
+  const [editBannerUrl, setEditBannerUrl] = useState("")
+  
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const loadProfile = async () => {
+    if (!user) return
+    const p = await getUserProfile(user.uid)
+    if (p) {
+      setProfile(p)
+      setEditDisplayName(p.displayName || "")
+      setEditUsername(p.username || "")
+      setEditBio(p.bio || "")
+      setEditLocation(p.location || "")
+      setEditWebsite(p.website || "")
+      setEditAvatarUrl(p.avatarUrl || "")
+      setEditBannerUrl(p.bannerUrl || "")
+    }
+  }
 
   useEffect(() => {
-    if (!user) return
-    void getUserProfile(user.uid).then(setProfile)
+    void loadProfile()
   }, [user])
 
+  // Load Timeline items
+  useEffect(() => {
+    if (!user) return
+    const loadTimeline = async () => {
+      try {
+        // Query user's posts
+        const qPosts = query(
+          collection(db, "posts"),
+          where("authorId", "==", user.uid)
+        )
+        const snapPosts = await getDocs(qPosts)
+        const postsList = snapPosts.docs.map((d) => ({ id: d.id, ...d.data() }))
+        postsList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
+          return timeB - timeA
+        })
+        setPosts(postsList)
+
+        // Filter Media posts
+        setMedia(postsList.filter((p: any) => p.media && p.media.length > 0))
+
+        // Query comments (Replies)
+        // For simplicity, find comments authored by user in posts
+        // We can query posts, or look at a user-replies tracking
+        const commentsList: any[] = []
+        setReplies(commentsList)
+
+        // Query Likes
+        setLikes([])
+      } catch (e) {
+        console.error("Error loading timeline", e)
+      }
+    }
+    void loadTimeline()
+  }, [user, activeTab])
+
+  const handleShare = async () => {
+    if (typeof window === "undefined") return
+    const shareUrl = window.location.href
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: profile?.displayName || "VibezTube Profile",
+          url: shareUrl,
+        })
+      } catch (e) {
+        console.error(e)
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl)
+      alert("Profile link copied to clipboard!")
+    }
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const url = await uploadToCloudinary(file)
+      setEditAvatarUrl(url)
+    } catch (err) {
+      console.error(err)
+      alert("Avatar upload failed")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingBanner(true)
+    try {
+      const url = await uploadToCloudinary(file)
+      setEditBannerUrl(url)
+    } catch (err) {
+      console.error(err)
+      alert("Banner upload failed")
+    } finally {
+      setUploadingBanner(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!user || !profile) return
+    setSaving(true)
+    try {
+      const originalUsername = profile.username || ""
+      const cleanNewUsername = editUsername.trim().replace(/^@/, "").toLowerCase()
+      
+      if (cleanNewUsername !== originalUsername) {
+        if (cleanNewUsername.length < 3) {
+          alert("Handle must be at least 3 characters long")
+          setSaving(false)
+          return
+        }
+        
+        const available = await isUsernameAvailable(cleanNewUsername)
+        if (!available) {
+          alert("That handle is already taken. Please try another one.")
+          setSaving(false)
+          return
+        }
+        
+        await confirmUsernameReservation(cleanNewUsername, user.uid)
+        
+        if (originalUsername) {
+          try {
+            await deleteDoc(doc(db, "username-reservations", originalUsername))
+          } catch (err) {
+            console.warn("Failed to delete old username reservation:", err)
+          }
+        }
+      }
+
+      await updateUserProfile({
+        displayName: editDisplayName,
+        username: cleanNewUsername || undefined,
+        bio: editBio,
+        location: editLocation,
+        website: editWebsite,
+        avatarUrl: editAvatarUrl,
+        bannerUrl: editBannerUrl,
+      })
+      await loadProfile()
+      setIsEditOpen(false)
+    } catch (e) {
+      console.error(e)
+      alert("Failed to update profile")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "July 2026"
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+  }
+
   return (
-    <div className="flex justify-center">
-      <FeedColumn header={<PageHeaderTitle title="Profile" subtitle="Your authenticated account" />}>
-        <div className="space-y-4 px-4 py-6">
-          <div className="rounded-3xl border border-border bg-card p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">Account</p>
-                <h2 className="mt-2 text-xl font-bold">{profile?.displayName || user?.displayName || "Your profile"}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{user?.email || "Phone sign-in"}</p>
+    <div className="flex justify-center min-h-screen">
+      <FeedColumn header={
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10">
+          <div>
+            <h1 className="text-lg font-bold flex items-center">
+              <span>{profile?.displayName || "Profile"}</span>
+              <VerifiedBadge type={profile?.verifiedBadge} />
+            </h1>
+            <p className="text-xs text-muted-foreground">{posts.length} posts</p>
+          </div>
+        </div>
+      }>
+        <div className="relative">
+          {/* Cover Photo */}
+          <div className="relative h-44 w-full bg-neutral-800">
+            {profile?.bannerUrl || editBannerUrl ? (
+              <img
+                src={profile?.bannerUrl || editBannerUrl}
+                alt="Profile banner"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-r from-violet-600 to-indigo-600" />
+            )}
+          </div>
+
+          {/* Profile Details Row */}
+          <div className="px-4 pb-4">
+            <div className="flex justify-between items-end -mt-16 mb-4">
+              {/* Profile Avatar */}
+              <div className="relative h-28 w-28 rounded-full border-4 border-background bg-card overflow-hidden">
+                {profile?.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-primary/20 flex items-center justify-center text-primary font-bold text-2xl">
+                    {(profile?.displayName || "U")[0]}
+                  </div>
+                )}
               </div>
-              {user?.emailVerified ? <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">Verified</span> : null}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {!user?.emailVerified ? (
-                <Button variant="outline" onClick={() => void verifyEmail()}>
-                  <Mail className="mr-2 h-4 w-4" /> Verify email
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="rounded-full h-9 w-9 p-0" onClick={handleShare}>
+                  <Share2 className="h-4 w-4" />
                 </Button>
-              ) : null}
-              <Button variant="outline" onClick={() => void signOut()}>
-                <LogOut className="mr-2 h-4 w-4" /> Sign out
-              </Button>
+                <Button size="sm" variant="outline" className="rounded-full font-bold px-4 h-9" onClick={() => setIsEditOpen(true)}>
+                  Edit Profile
+                </Button>
+              </div>
+            </div>
+
+            {/* Profile Info */}
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-xl font-extrabold text-foreground leading-tight flex items-center">
+                  <span>{profile?.displayName || "VibezTube User"}</span>
+                  <VerifiedBadge type={profile?.verifiedBadge} />
+                </h2>
+                <p className="text-sm text-muted-foreground">@{profile?.username || "username"}</p>
+              </div>
+
+              {profile?.bio && <p className="text-sm text-foreground leading-normal whitespace-pre-wrap">{profile.bio}</p>}
+
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                {profile?.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {profile.location}
+                  </span>
+                )}
+                {profile?.website && (
+                  <a
+                    href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" /> {profile.website}
+                  </a>
+                )}
+                <span className="flex items-center gap-1">
+                  <CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(profile?.createdAt)}
+                </span>
+              </div>
+
+              <div className="flex gap-4 text-sm pt-1">
+                <span className="text-muted-foreground">
+                  <strong className="text-foreground font-semibold">{profile?.followingCount || 0}</strong> Following
+                </span>
+                <span className="text-muted-foreground">
+                  <strong className="text-foreground font-semibold">{profile?.followersCount || 0}</strong> Followers
+                </span>
+              </div>
             </div>
           </div>
-          <div className="rounded-3xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <ShieldCheck className="h-4 w-4 text-primary" /> Secure session
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">Firebase Authentication manages your secure session and account state.</p>
-            <p className="mt-2 text-sm text-muted-foreground">UID: {user?.uid}</p>
+
+          {/* Profile Tabs */}
+          <div className="flex border-b border-border overflow-x-auto">
+            {["posts", "replies", "media", "likes", "reposts"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-sm font-semibold capitalize transition-all border-b-2 text-center min-w-[80px] cursor-pointer ${
+                  activeTab === tab
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-accent/40"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Timeline Feed Container */}
+          <div className="divide-y divide-border min-h-[300px]">
+            {activeTab === "posts" && (
+              posts.length > 0 ? (
+                posts.map((p) => (
+                  <div key={p.id} className="p-4 flex gap-3">
+                    <UserAvatar user={profile} className="h-10 w-10 shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold text-sm">{profile?.displayName}</span>
+                        <VerifiedBadge type={profile?.verifiedBadge} />
+                        <span className="text-xs text-muted-foreground ml-1.5">@{profile?.username}</span>
+                      </div>
+                      <p className="text-sm mt-1 text-foreground leading-normal">{p.text}</p>
+                      {p.media && p.media.length > 0 && (
+                        <div className="mt-2 rounded-2xl overflow-hidden max-h-60 border border-border">
+                          <img src={p.media[0].src} alt="post media" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">No posts yet.</div>
+              )
+            )}
+
+            {activeTab === "media" && (
+              media.length > 0 ? (
+                media.map((p) => (
+                  <div key={p.id} className="p-4 flex gap-3">
+                    <UserAvatar user={profile} className="h-10 w-10 shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold text-sm">{profile?.displayName}</span>
+                        <VerifiedBadge type={profile?.verifiedBadge} />
+                        <span className="text-xs text-muted-foreground ml-1.5">@{profile?.username}</span>
+                      </div>
+                      <p className="text-sm mt-1 text-foreground leading-normal">{p.text}</p>
+                      <div className="mt-2 rounded-2xl overflow-hidden max-h-60 border border-border">
+                        <img src={p.media[0].src} alt="post media" className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">No media posts found.</div>
+              )
+            )}
+
+            {["replies", "likes", "reposts"].includes(activeTab) && (
+              <div className="py-12 text-center text-sm text-muted-foreground capitalize">
+                No {activeTab} available.
+              </div>
+            )}
           </div>
         </div>
       </FeedColumn>
       <RightRail />
+
+      {/* Edit Profile Modal Dialog */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  className="rounded-full p-1.5 hover:bg-accent text-muted-foreground transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <h3 className="text-lg font-bold">Edit Profile</h3>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => void handleSaveProfile()}
+                disabled={saving || uploadingAvatar || uploadingBanner}
+                className="font-bold rounded-full px-5"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+
+            {/* Scrollable Container */}
+            <div className="max-h-[75vh] overflow-y-auto p-6 space-y-6">
+              {/* Banner Upload */}
+              <div className="relative h-32 w-full bg-neutral-800 rounded-xl overflow-hidden border border-border">
+                {editBannerUrl ? (
+                  <img src={editBannerUrl} alt="banner preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-r from-violet-600 to-indigo-600" />
+                )}
+                <label className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer transition-opacity hover:opacity-100 opacity-90">
+                  <Camera className="h-6 w-6 text-white" />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+                </label>
+                {uploadingBanner && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* Avatar Upload */}
+              <div className="flex gap-4 items-center">
+                <div className="relative h-20 w-20 rounded-full overflow-hidden border border-border bg-muted">
+                  {editAvatarUrl ? (
+                    <img src={editAvatarUrl} alt="avatar preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                      {editDisplayName[0] || "U"}
+                    </div>
+                  )}
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/45 cursor-pointer opacity-90 hover:opacity-100">
+                    <Camera className="h-5 w-5 text-white" />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  </label>
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Profile Photo</p>
+                  <p className="text-xs text-muted-foreground">Supported format: JPG, PNG, WEBP</p>
+                </div>
+              </div>
+
+              {/* Display Name Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Display Name
+                </label>
+                <Input
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="Your display name"
+                />
+              </div>
+
+              {/* Username Handle Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Username Handle
+                </label>
+                <Input
+                  value={editUsername.startsWith("@") || !editUsername ? editUsername : `@${editUsername}`}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder="e.g. @yourhandle"
+                />
+              </div>
+
+              {/* Bio Textarea */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Bio
+                </label>
+                <Textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  placeholder="Tell us about yourself"
+                  rows={3}
+                />
+              </div>
+
+              {/* Location Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Location
+                </label>
+                <Input
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g. San Francisco, CA"
+                />
+              </div>
+
+              {/* Website Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Website
+                </label>
+                <Input
+                  value={editWebsite}
+                  onChange={(e) => setEditWebsite(e.target.value)}
+                  placeholder="e.g. vibeztube.com"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

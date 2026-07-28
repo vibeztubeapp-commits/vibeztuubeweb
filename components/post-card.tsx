@@ -1,11 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import { BadgeCheck, Heart, MessageCircle, Repeat2, BarChart3, Share, Bookmark, MoreHorizontal } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHorizontal } from "lucide-react"
 import { getUser, formatCount, type Post } from "@/lib/production-data"
 import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
+import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost } from "@/lib/services"
+import { useAuth } from "@/components/auth-provider"
+import { doc, onSnapshot } from "firebase/firestore"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 function Action({
   icon: Icon,
@@ -41,64 +46,194 @@ function Action({
 }
 
 export function PostCard({ post, priority }: { post: Post; priority?: boolean }) {
-  const author = getUser(post.authorId)
-  const [liked, setLiked] = useState(!!post.liked)
+  const [author, setAuthor] = useState<any>(null)
+
+  useEffect(() => {
+    let active = true
+    void getUserProfile(post.authorId).then((profile) => {
+      if (active) {
+        if (profile) {
+          setAuthor(profile)
+        } else {
+          setAuthor(getUser(post.authorId))
+        }
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [post.authorId])
+
+  const [liked, setLiked] = useState(false)
+  const [reposted, setReposted] = useState(false)
   const [saved, setSaved] = useState(false)
-  const likeCount = post.likes + (liked && !post.liked ? 1 : 0) - (!liked && post.liked ? 1 : 0)
+  const { user } = useAuth()
+  const uid = user?.uid
+
+  useEffect(() => {
+    if (!uid) return
+    const likeRef = doc(db, "posts", post.id, "likes", uid)
+    return onSnapshot(likeRef, (snap) => {
+      setLiked(snap.exists())
+    })
+  }, [post.id, uid])
+
+  useEffect(() => {
+    if (!uid) return
+    const repostRef = doc(db, "posts", post.id, "reposts", uid)
+    return onSnapshot(repostRef, (snap) => {
+      setReposted(snap.exists())
+    })
+  }, [post.id, uid])
+
+  useEffect(() => {
+    if (!uid) return
+    const bookmarkRef = doc(db, "bookmarks", `${uid}_${post.id}`)
+    return onSnapshot(bookmarkRef, (snap) => {
+      setSaved(snap.exists())
+    })
+  }, [post.id, uid])
+
+  const [reposterProfile, setReposterProfile] = useState<any>(null)
+  const [originalPost, setOriginalPost] = useState<Post | null>(null)
+  const [originalAuthor, setOriginalAuthor] = useState<any>(null)
+
+  useEffect(() => {
+    if (!post.repostOf) return
+    void getUserProfile(post.authorId).then((profile) => setReposterProfile(profile))
+    
+    const origRef = doc(db, "posts", post.repostOf)
+    return onSnapshot(origRef, async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        const p = {
+          id: snap.id,
+          authorId: data.authorId || "guest",
+          timeAgo: data.timeAgo || "just now",
+          text: data.text || "",
+          media: data.media || [],
+          likes: Number(data.likes || 0),
+          comments: Number(data.comments || 0),
+          reposts: Number(data.reposts || 0),
+          bookmarks: Number(data.bookmarks || 0),
+          shares: Number(data.shares || 0),
+          views: String(data.views || "0"),
+        }
+        setOriginalPost(p)
+        const profile = await getUserProfile(p.authorId)
+        setOriginalAuthor(profile)
+      }
+    })
+  }, [post.repostOf, post.authorId])
+
+  const displayPost = originalPost || post
+  const displayAuthor = originalPost ? (originalAuthor || getUser(originalPost.authorId)) : (author || getUser(post.authorId))
+
+  const router = useRouter()
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    router.push(`/status/${displayPost.id}`)
+  }
 
   return (
-    <article className="flex gap-3 border-b border-border px-4 py-3.5 transition-colors hover:bg-accent/40">
-      <UserAvatar user={author} className="h-11 w-11 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-sm">
-          <span className="font-bold">{author.name}</span>
-          {author.verified ? <BadgeCheck className="h-4 w-4 fill-primary text-background" /> : null}
-          <span className="truncate text-muted-foreground">@{author.username}</span>
-          <span className="text-muted-foreground">· {post.timeAgo}</span>
-          <button type="button" aria-label="More" className="ml-auto rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+    <div
+      onClick={handleCardClick}
+      className="border-b border-border transition-colors hover:bg-accent/40 cursor-pointer"
+    >
+      {/* Repost status banner header */}
+      {post.repostOf && (
+        <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-4 pt-2.5 pb-0.5">
+          <Repeat2 className="h-3 w-3 text-emerald-500" />
+          <span>{reposterProfile?.displayName || reposterProfile?.name || "Someone"} reposted</span>
         </div>
+      )}
 
-        <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{post.text}</p>
-
-        {post.media?.length ? (
-          <div className="mt-3 overflow-hidden rounded-2xl border border-border">
-            {post.media.map((m, i) => (
-              <div key={i} className="relative aspect-video bg-muted">
-                {m.src ? (
-                  <Image
-                    src={m.src}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 600px"
-                    priority={priority && i === 0}
-                  />
-                ) : null}
-              </div>
-            ))}
+      <article className="flex gap-3 px-4 py-3">
+        <UserAvatar user={displayAuthor} className="h-11 w-11 shrink-0" />
+        
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 text-sm">
+            <span className="font-bold flex items-center">
+              <span>{displayAuthor.displayName || displayAuthor.name}</span>
+              <VerifiedBadge type={displayAuthor.verifiedBadge} />
+            </span>
+            <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
+            <span className="text-muted-foreground">· {displayPost.timeAgo}</span>
+            <button
+              type="button"
+              aria-label="More"
+              onClick={(e) => e.stopPropagation()}
+              className="ml-auto rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
           </div>
-        ) : null}
 
-        <div className="mt-3 flex items-center justify-between pr-1">
-          <Action icon={MessageCircle} count={post.comments} label="Reply" />
-          <Action icon={Repeat2} count={post.reposts} label="Repost" activeClass="text-emerald-500" />
-          <Action
-            icon={Heart}
-            count={likeCount}
-            label="Like"
-            active={liked}
-            activeClass="text-primary"
-            onClick={() => setLiked((v) => !v)}
-          />
-          <Action icon={BarChart3} count={post.views} label="Views" />
-          <div className="flex items-center">
-            <Action icon={Bookmark} label="Save" active={saved} activeClass="text-primary" onClick={() => setSaved((v) => !v)} />
-            <Action icon={Share} label="Share" />
+          <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{displayPost.text}</p>
+
+          {displayPost.media?.length ? (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+              {displayPost.media.map((m, i) => (
+                <div key={i} className="relative aspect-video bg-muted">
+                  {m.src ? (
+                    m.type === "video" || m.src.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) ? (
+                      <video
+                        src={m.src}
+                        controls
+                        playsInline
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Image
+                        src={m.src}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 600px"
+                        priority={priority && i === 0}
+                      />
+                    )
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="mt-3 flex items-center justify-between pr-1" onClick={(e) => e.stopPropagation()}>
+            <Action icon={MessageCircle} count={displayPost.comments} label="Reply" onClick={() => router.push(`/status/${displayPost.id}`)} />
+            <Action
+              icon={Repeat2}
+              count={displayPost.reposts}
+              label="Repost"
+              active={reposted}
+              activeClass="text-emerald-500 animate-pulse"
+              onClick={() => void toggleRepostPost(displayPost.id, reposted)}
+            />
+            <Action
+              icon={Heart}
+              count={displayPost.likes}
+              label="Like"
+              active={liked}
+              activeClass="text-primary animate-pulse"
+              onClick={() => void toggleLikePost(displayPost.id, liked)}
+            />
+            <Action icon={Eye} count={displayPost.views} label="Views" />
+            <div className="flex items-center">
+              <Action icon={Bookmark} count={displayPost.bookmarks} label="Save" active={saved} activeClass="text-primary animate-pulse" onClick={() => void toggleBookmarkPost(displayPost.id, saved)} />
+              <Action
+                icon={Share}
+                label="Share"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    navigator.clipboard.writeText(`${window.location.origin}/status/${displayPost.id}`)
+                    alert("Post link copied to clipboard!")
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </div>
   )
 }

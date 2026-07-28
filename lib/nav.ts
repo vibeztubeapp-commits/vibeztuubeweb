@@ -8,8 +8,9 @@ import {
   Bell,
   User,
   LayoutDashboard,
-  Shield,
-  Settings,
+  ShieldCheck,
+  MoreHorizontal,
+  Plus,
   type LucideIcon,
 } from "lucide-react"
 
@@ -27,15 +28,15 @@ export const primaryNav: NavItem[] = [
   { label: "Shorts", href: "/shorts", icon: Clapperboard },
   { label: "Spaces", href: "/spaces", icon: Radio },
   { label: "Live", href: "/live", icon: Video },
-  { label: "Messages", href: "/messages", icon: MessageCircle, badge: 3 },
+  { label: "Chat", href: "/messages", icon: MessageCircle, badge: 3 },
   { label: "Notifications", href: "/notifications", icon: Bell, badge: 4 },
   { label: "Profile", href: "/profile", icon: User },
 ]
 
 export const secondaryNav: NavItem[] = [
-  { label: "Creator Studio", href: "/studio", icon: LayoutDashboard },
-  { label: "Admin", href: "/admin", icon: Shield },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "V-Creator Studio", href: "/studio", icon: LayoutDashboard },
+  { label: "Get Verified", href: "/admin", icon: ShieldCheck },
+  { label: "More", href: "/settings", icon: MoreHorizontal },
 ]
 
 // Condensed navigation for the mobile bottom bar.
@@ -44,5 +45,5 @@ export const mobileNav: NavItem[] = [
   { label: "Explore", href: "/explore", icon: Compass },
   { label: "Shorts", href: "/shorts", icon: Clapperboard },
   { label: "Live", href: "/live", icon: Video },
-  { label: "Messages", href: "/messages", icon: MessageCircle, badge: 3 },
+  { label: "Chat", href: "/messages", icon: MessageCircle, badge: 3 },
 ]

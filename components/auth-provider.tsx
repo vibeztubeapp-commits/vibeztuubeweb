@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (result.user.email) {
                 await sendEmailVerification(result.user)
             }
-            router.replace("/")
+            router.replace("/onboarding")
         }
     }
 
