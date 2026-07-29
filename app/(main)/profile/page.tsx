@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useState, useTransition, Suspense } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { AuthGuard } from "@/components/auth-guard"
 import { FeedColumn } from "@/components/shell/feed-column"
@@ -9,20 +9,47 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
-import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation } from "@/lib/services"
-import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc } from "firebase/firestore"
+import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
+import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot } from "firebase/firestore"
 import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2 } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { useSearchParams } from "next/navigation"
 
 function ProfileView() {
   const { user, signOut } = useAuth()
+  const searchParams = useSearchParams()
+  const queryUid = searchParams?.get("uid")
+  const targetUid = queryUid || user?.uid
+
   const [profile, setProfile] = useState<any>(null)
+  const [following, setFollowing] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [posts, setPosts] = useState<any[]>([])
   const [replies, setReplies] = useState<any[]>([])
   const [media, setMedia] = useState<any[]>([])
   const [likes, setLikes] = useState<any[]>([])
   const [reposts, setReposts] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!user || !targetUid || targetUid === user.uid) return
+    const followRef = doc(db, "follows", `${user.uid}_${targetUid}`)
+    return onSnapshot(followRef, (snap) => {
+      setFollowing(snap.exists())
+    })
+  }, [user, targetUid])
+
+  const handleFollowToggle = async () => {
+    if (!user || !targetUid) return
+    try {
+      if (following) {
+        await unfollowUser(targetUid)
+      } else {
+        await followUser(targetUid)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState("")
@@ -38,8 +65,8 @@ function ProfileView() {
   const [saving, setSaving] = useState(false)
 
   const loadProfile = async () => {
-    if (!user) return
-    const p = await getUserProfile(user.uid)
+    if (!targetUid) return
+    const p = await getUserProfile(targetUid)
     if (p) {
       setProfile(p)
       setEditDisplayName(p.displayName || "")
@@ -54,17 +81,17 @@ function ProfileView() {
 
   useEffect(() => {
     void loadProfile()
-  }, [user])
+  }, [targetUid])
 
   // Load Timeline items
   useEffect(() => {
-    if (!user) return
+    if (!targetUid) return
     const loadTimeline = async () => {
       try {
         // Query user's posts
         const qPosts = query(
           collection(db, "posts"),
-          where("authorId", "==", user.uid)
+          where("authorId", "==", targetUid)
         )
         const snapPosts = await getDocs(qPosts)
         const postsList = snapPosts.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -91,7 +118,7 @@ function ProfileView() {
       }
     }
     void loadTimeline()
-  }, [user, activeTab])
+  }, [targetUid, activeTab])
 
   const handleShare = async () => {
     if (typeof window === "undefined") return
@@ -244,9 +271,20 @@ function ProfileView() {
                 <Button size="sm" variant="outline" className="rounded-full h-9 w-9 p-0" onClick={handleShare}>
                   <Share2 className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="outline" className="rounded-full font-bold px-4 h-9" onClick={() => setIsEditOpen(true)}>
-                  Edit Profile
-                </Button>
+                {targetUid === user?.uid ? (
+                  <Button size="sm" variant="outline" className="rounded-full font-bold px-4 h-9" onClick={() => setIsEditOpen(true)}>
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={following ? "outline" : "default"}
+                    className="rounded-full font-bold px-5 h-9"
+                    onClick={handleFollowToggle}
+                  >
+                    {following ? "Following" : "Follow"}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -514,7 +552,9 @@ function ProfileView() {
 export default function ProfilePage() {
   return (
     <AuthGuard>
-      <ProfileView />
+      <Suspense fallback={<div className="py-20 text-center text-xs text-muted-foreground">Loading profile...</div>}>
+        <ProfileView />
+      </Suspense>
     </AuthGuard>
   )
 }

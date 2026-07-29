@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 function initials(name: string) {
   if (!name) return "U"
@@ -15,14 +16,34 @@ export function UserAvatar({
   user,
   className,
   ring,
+  disableLink,
 }: {
   user: any
   className?: string
   ring?: boolean
+  disableLink?: boolean
 }) {
+  const router = useRouter()
   const avatarUrl = user?.avatarUrl || user?.avatar
+  
+  const handleClick = (e: React.MouseEvent) => {
+    if (disableLink) return
+    const targetUid = user?.uid || user?.id
+    if (targetUid) {
+      e.stopPropagation()
+      router.push(`/profile?uid=${targetUid}`)
+    }
+  }
+
   return (
-    <Avatar className={cn(ring && "ring-2 ring-primary ring-offset-2 ring-offset-background", className)}>
+    <Avatar
+      onClick={handleClick}
+      className={cn(
+        ring && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+        !disableLink && "cursor-pointer hover:opacity-85 transition-opacity",
+        className
+      )}
+    >
       {avatarUrl ? (
         <AvatarImage src={avatarUrl} alt={user?.displayName || user?.name || "avatar"} />
       ) : null}

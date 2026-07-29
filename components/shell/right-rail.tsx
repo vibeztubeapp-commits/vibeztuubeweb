@@ -3,11 +3,39 @@ import { Search, TrendingUp, Radio } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
-import { users, trends, spaces, formatCount } from "@/lib/production-data"
+import { trends, spaces, formatCount } from "@/lib/production-data"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/components/auth-provider"
+import { db, followUser } from "@/lib/services"
+import { collection, query, where, limit, onSnapshot } from "firebase/firestore"
 
 export function RightRail() {
-  const suggestions = users.filter((u) => u.id !== "me").slice(0, 3)
+  const { user } = useAuth()
+  const [allProfiles, setAllProfiles] = useState<any[]>([])
+  const [followedIds, setFollowedIds] = useState<string[]>([])
   const liveSpace = spaces.find((s) => s.live)
+
+  useEffect(() => {
+    // Fetch profiles
+    const q = query(collection(db, "profiles"), limit(30))
+    return onSnapshot(q, (snap) => {
+      const list = snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() }))
+      setAllProfiles(list)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    const q = query(collection(db, "follows"), where("followerUid", "==", user.uid))
+    return onSnapshot(q, (snap) => {
+      const ids = snap.docs.map((doc) => doc.data().followeeUid)
+      setFollowedIds(ids)
+    })
+  }, [user])
+
+  const suggestions = allProfiles
+    .filter((p) => p.uid !== user?.uid && !followedIds.includes(p.uid))
+    .slice(0, 3)
 
   return (
     <aside className="sticky top-0 hidden h-svh w-80 shrink-0 flex-col gap-4 overflow-y-auto py-4 pl-6 pr-2 lg:flex">
@@ -55,13 +83,20 @@ export function RightRail() {
         <h2 className="mb-2 text-base font-bold">Who to follow</h2>
         <ul className="flex flex-col gap-3">
           {suggestions.map((u) => (
-            <li key={u.id} className="flex items-center gap-3">
-              <UserAvatar user={u} className="h-10 w-10" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{u.name}</p>
-                <p className="truncate text-xs text-muted-foreground">@{u.username}</p>
-              </div>
-              <Button size="sm" className="rounded-full">
+            <li key={u.uid} className="flex items-center gap-3">
+              <UserAvatar user={u} className="h-10 w-10 shrink-0" />
+              <Link
+                href={`/profile?uid=${u.uid}`}
+                className="min-w-0 flex-1 hover:underline decoration-muted-foreground/50"
+              >
+                <p className="truncate text-sm font-semibold leading-tight">{u.displayName || u.name || "Creator"}</p>
+                <p className="truncate text-xs text-muted-foreground">@{u.username || "username"}</p>
+              </Link>
+              <Button
+                size="sm"
+                className="rounded-full font-bold h-8 text-xs px-4"
+                onClick={() => void followUser(u.uid)}
+              >
                 Follow
               </Button>
             </li>

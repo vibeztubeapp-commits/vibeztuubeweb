@@ -153,11 +153,22 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
         
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1 text-sm">
-            <span className="font-bold flex items-center">
-              <span>{displayAuthor.displayName || displayAuthor.name}</span>
-              <VerifiedBadge type={displayAuthor.verifiedBadge} />
-            </span>
-            <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
+            <div
+              onClick={(e) => {
+                e.stopPropagation()
+                const targetUid = displayAuthor.uid || displayAuthor.id || post.authorId
+                if (targetUid) {
+                  router.push(`/profile?uid=${targetUid}`)
+                }
+              }}
+              className="flex items-center gap-1 cursor-pointer hover:underline"
+            >
+              <span className="font-bold flex items-center">
+                <span>{displayAuthor.displayName || displayAuthor.name}</span>
+                <VerifiedBadge type={displayAuthor.verifiedBadge} />
+              </span>
+              <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
+            </div>
             <span className="text-muted-foreground">· {displayPost.timeAgo}</span>
             <button
               type="button"

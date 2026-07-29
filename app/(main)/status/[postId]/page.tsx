@@ -40,6 +40,7 @@ function CommentCardItem({
   const [showReplyComposer, setShowReplyComposer] = useState(false)
   const [replyText, setReplyText] = useState("")
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
   const uid = user?.uid
 
   useEffect(() => {
@@ -106,12 +107,23 @@ function CommentCardItem({
           
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1 text-[11px]">
+            <div
+              onClick={(e) => {
+                e.stopPropagation()
+                const targetUid = comment.authorId
+                if (targetUid) {
+                  router.push(`/profile?uid=${targetUid}`)
+                }
+              }}
+              className="flex items-center gap-1 cursor-pointer hover:underline text-[11px]"
+            >
               <span className="font-bold text-foreground flex items-center gap-0.5">
                 <span>{comment.authorProfile?.displayName || "Creator"}</span>
                 <VerifiedBadge type={comment.authorProfile?.verifiedBadge} />
               </span>
               <span className="text-muted-foreground truncate">@{comment.authorProfile?.username || "username"}</span>
-              <span className="text-[10px] text-muted-foreground ml-auto">{formatTimestamp(comment.createdAt)}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground ml-auto">{formatTimestamp(comment.createdAt)}</span>
             </div>
 
             {replyingToUser && (
