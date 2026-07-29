@@ -28,7 +28,7 @@ export function UserAvatar({
   
   const handleClick = (e: React.MouseEvent) => {
     if (disableLink) return
-    const targetUid = user?.uid || user?.id
+    const targetUid = user?.uid || user?.id || user?.userId || user?.authorId
     if (targetUid) {
       e.stopPropagation()
       router.push(`/profile?uid=${targetUid}`)
