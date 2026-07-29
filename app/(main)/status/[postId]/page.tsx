@@ -40,8 +40,19 @@ function CommentCardItem({
   const [showReplyComposer, setShowReplyComposer] = useState(false)
   const [replyText, setReplyText] = useState("")
   const [loading, setLoading] = useState(false)
+  const [myProfile, setMyProfile] = useState<any>(null)
   const router = useRouter()
   const uid = user?.uid
+
+  useEffect(() => {
+    if (!uid) return
+    const myProfileRef = doc(db, "profiles", uid)
+    return onSnapshot(myProfileRef, (snap) => {
+      if (snap.exists()) {
+        setMyProfile({ uid: snap.id, ...snap.data() })
+      }
+    })
+  }, [uid])
 
   useEffect(() => {
     if (!uid) return
@@ -202,7 +213,7 @@ function CommentCardItem({
 
         {showReplyComposer && (
           <div className="mt-2 pt-2 border-t border-border/40 flex gap-2 items-center">
-            <UserAvatar user={user} className="h-7 w-7 shrink-0" />
+            <UserAvatar user={myProfile || user} className="h-7 w-7 shrink-0" />
             <Input
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
@@ -236,10 +247,21 @@ export default function StatusPage() {
   const [post, setPost] = useState<any>(null)
   const [postAuthor, setPostAuthor] = useState<any>(null)
   const [comments, setComments] = useState<any[]>([])
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
   const [parentReplyText, setParentReplyText] = useState("")
   const [postingReply, setPostingReply] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user?.uid) return
+    const profileRef = doc(db, "profiles", user.uid)
+    return onSnapshot(profileRef, (snap) => {
+      if (snap.exists()) {
+        setCurrentUserProfile({ uid: snap.id, ...snap.data() })
+      }
+    })
+  }, [user])
 
   // Real-time parent post listener and view increment
   useEffect(() => {
@@ -443,7 +465,7 @@ export default function StatusPage() {
 
                 {/* Direct Post Reply Composer */}
                 <div className="flex gap-3 py-4 px-1 items-start border-b border-border">
-                  <UserAvatar user={user} className="h-10 w-10 shrink-0" />
+                  <UserAvatar user={currentUserProfile || user} className="h-10 w-10 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="text-xs text-muted-foreground">
                       Replying to <span className="text-primary font-medium">@{postAuthor?.username || "username"}</span>

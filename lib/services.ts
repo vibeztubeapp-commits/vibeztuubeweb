@@ -86,16 +86,14 @@ export async function createComment(postId: string, input: { authorId: string; t
         reposts: 0,
         createdAt: serverTimestamp(),
     })
+    const postRef = doc(db, "posts", postId)
+    await updateDoc(postRef, { comments: increment(1) })
     if (input.parentCommentId) {
         const parentCommentRef = doc(db, "posts", postId, "comments", input.parentCommentId)
         await updateDoc(parentCommentRef, { comments: increment(1) })
-    } else {
-        const postRef = doc(db, "posts", postId)
-        await updateDoc(postRef, { comments: increment(1) })
     }
     await logUserActivity("comment", { postId, commentId: docRef.id, text: input.text })
 
-    const postRef = doc(db, "posts", postId)
     const postSnap = await getDoc(postRef)
     if (postSnap.exists()) {
         const postData = postSnap.data()
