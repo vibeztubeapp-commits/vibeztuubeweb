@@ -120,7 +120,7 @@ export default function RegisterPage() {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
                 <div className="text-center">
-                    <img src="/logo.png" alt="VibezTube Logo" className="mx-auto h-24 w-auto mb-4 animate-pulse" />
+                    <img src="/logo-auth.png" alt="VibezTube Logo" className="mx-auto h-24 w-auto mb-4 animate-pulse" />
                     <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">VibezTube</p>
                 </div>
             </div>
@@ -174,7 +174,7 @@ export default function RegisterPage() {
         <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
             <div className="w-full max-w-sm bg-transparent p-0">
                 <div className="mb-6 text-center">
-                    <img src="/logo.png" alt="VibezTube Logo" className="mx-auto h-20 w-auto mb-4" />
+                    <img src="/logo-auth.png" alt="VibezTube Logo" className="mx-auto h-20 w-auto mb-4" />
                     <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">VibezTube</p>
                     <h1 className="mt-2 text-2xl font-bold">Create your account</h1>
                     <p className="mt-2 text-sm text-muted-foreground">A guided setup for your profile, identity, and security.</p>
