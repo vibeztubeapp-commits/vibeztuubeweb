@@ -4,14 +4,12 @@ export function Logo({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm",
+        "inline-flex items-center justify-center rounded-xl overflow-hidden bg-black shadow-sm",
         className,
       )}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 24 24" fill="none" className="h-[62%] w-[62%]">
-        <path d="M9 7.5v9l7-4.5-7-4.5Z" fill="currentColor" />
-      </svg>
+      <img src="/logo.png" alt="logo" className="h-full w-full object-cover" />
     </span>
   )
 }

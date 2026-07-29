@@ -165,6 +165,14 @@ export default function VCreatorStudioPage() {
                 <p className="text-xs text-muted-foreground font-medium">Bookmarks</p>
                 <p className="text-2xl font-bold mt-1 text-yellow-500">{stats.bookmarks}</p>
               </div>
+              <div className="p-5 rounded-2xl border border-border bg-card">
+                <p className="text-xs text-muted-foreground font-medium">Post Views</p>
+                <p className="text-2xl font-bold mt-1 text-sky-500">{stats.views}</p>
+              </div>
+              <div className="p-5 rounded-2xl border border-border bg-card">
+                <p className="text-xs text-muted-foreground font-medium">Total Impressions</p>
+                <p className="text-2xl font-bold mt-1 text-emerald-500">{impressionsCount.toLocaleString()}</p>
+              </div>
             </div>
 
             {/* Interactive Custom SVG Line Chart */}
@@ -232,7 +240,7 @@ export default function VCreatorStudioPage() {
             <div className="p-6 rounded-2xl bg-gradient-to-r from-violet-900/60 to-indigo-900/60 border border-violet-700/30 space-y-5">
               <div className="space-y-1">
                 <h3 className="text-lg font-extrabold text-white flex items-center gap-1.5">
-                  <BarChart2 className="h-5 w-5 text-primary" /> VibezTube Creator Partner Program
+                  <BarChart2 className="h-5 w-5 text-primary" /> VibezTube Partnership Program
                 </h3>
                 <p className="text-xs text-indigo-200">
                   Monetize your video impressions & feed posts. Start earning shares of advertisement revenue.
@@ -298,7 +306,7 @@ export default function VCreatorStudioPage() {
                 disabled={partnerApplied || !meetsAll}
                 className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
               >
-                {partnerApplied ? "Application Under Review" : "Apply to Partner Program"}
+                {partnerApplied ? "Application Under Review" : "Apply for Partnership Program"}
               </Button>
             </div>
 
