@@ -28,6 +28,41 @@ const days = Array.from({ length: 31 }, (_, i) => String(i + 1))
 const currentYear = new Date().getFullYear()
 const years = Array.from({ length: 110 }, (_, i) => String(currentYear - i))
 
+function cleanErrorMessage(error: any): string {
+    if (!error) return "An unexpected error occurred. Please try again."
+    const errStr = error.code || (error.message ? String(error.message) : String(error))
+    
+    if (errStr.includes("auth/network-request-failed") || errStr.includes("network-request-failed")) {
+        return "Network connection lost. Please check your internet connection and try again."
+    }
+    if (
+        errStr.includes("auth/invalid-credential") || 
+        errStr.includes("auth/user-not-found") || 
+        errStr.includes("auth/wrong-password") ||
+        errStr.includes("auth/invalid-email")
+    ) {
+        return "Password or email/username incorrect. Please try again."
+    }
+    if (errStr.includes("auth/email-already-in-use")) {
+        return "This email address is already registered to another account."
+    }
+    if (errStr.includes("auth/weak-password")) {
+        return "Password is too weak. Please use at least 6 characters."
+    }
+    if (errStr.includes("auth/too-many-requests")) {
+        return "Too many unsuccessful attempts. Please try again later."
+    }
+    if (errStr.includes("auth/user-disabled")) {
+        return "This account has been disabled. Please contact support."
+    }
+    
+    let clean = error.message || String(error)
+    clean = clean.replace(/^firebase:\s*/gi, "")
+    clean = clean.replace(/FirebaseError:\s*/gi, "")
+    clean = clean.replace(/\s*\(auth\/[a-z-]+\)\.?/gi, "")
+    return clean || "An unexpected error occurred. Please try again."
+}
+
 export default function RegisterPage() {
     const { signUpWithEmail } = useAuth()
     const [showSplash, setShowSplash] = useState(true)
@@ -117,7 +152,7 @@ export default function RegisterPage() {
 
             await signUpWithEmail(email, password, { displayName, username, avatarUrl, dob, createdAt: undefined })
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Unable to create account")
+            setMessage(cleanErrorMessage(error))
         } finally {
             setLoading(false)
         }

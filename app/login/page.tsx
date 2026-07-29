@@ -8,6 +8,41 @@ import { getEmailByUsername } from "@/lib/services"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+function cleanErrorMessage(error: any): string {
+    if (!error) return "An unexpected error occurred. Please try again."
+    const errStr = error.code || (error.message ? String(error.message) : String(error))
+    
+    if (errStr.includes("auth/network-request-failed") || errStr.includes("network-request-failed")) {
+        return "Network connection lost. Please check your internet connection and try again."
+    }
+    if (
+        errStr.includes("auth/invalid-credential") || 
+        errStr.includes("auth/user-not-found") || 
+        errStr.includes("auth/wrong-password") ||
+        errStr.includes("auth/invalid-email")
+    ) {
+        return "Password or email/username incorrect. Please try again."
+    }
+    if (errStr.includes("auth/email-already-in-use")) {
+        return "This email address is already registered to another account."
+    }
+    if (errStr.includes("auth/weak-password")) {
+        return "Password is too weak. Please use at least 6 characters."
+    }
+    if (errStr.includes("auth/too-many-requests")) {
+        return "Too many unsuccessful attempts. Please try again later."
+    }
+    if (errStr.includes("auth/user-disabled")) {
+        return "This account has been disabled. Please contact support."
+    }
+    
+    let clean = error.message || String(error)
+    clean = clean.replace(/^firebase:\s*/gi, "")
+    clean = clean.replace(/FirebaseError:\s*/gi, "")
+    clean = clean.replace(/\s*\(auth\/[a-z-]+\)\.?/gi, "")
+    return clean || "An unexpected error occurred. Please try again."
+}
+
 export default function LoginPage() {
     const { signInWithEmail, signInWithGoogle, resetPassword, startPhoneSignIn } = useAuth()
     const [showSplash, setShowSplash] = useState(true)
@@ -62,12 +97,7 @@ export default function LoginPage() {
 
             await signInWithEmail(emailToUse, password)
         } catch (error: any) {
-            const errStr = String(error)
-            if (errStr.includes("auth/invalid-credential") || errStr.includes("auth/user-not-found") || errStr.includes("auth/wrong-password")) {
-                setMessage("password or email incorrect try again")
-            } else {
-                setMessage(error instanceof Error ? error.message : "Unable to sign in")
-            }
+            setMessage(cleanErrorMessage(error))
         } finally {
             setLoading(false)
         }
@@ -79,7 +109,7 @@ export default function LoginPage() {
         try {
             await signInWithGoogle()
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Google sign-in failed")
+            setMessage(cleanErrorMessage(error))
         } finally {
             setLoading(false)
         }
@@ -92,7 +122,7 @@ export default function LoginPage() {
             await startPhoneSignIn(phone)
             setMessage("Code sent. Enter the code in your app to finish sign-in.")
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Phone sign-in failed")
+            setMessage(cleanErrorMessage(error))
         } finally {
             setLoading(false)
         }
@@ -119,7 +149,7 @@ export default function LoginPage() {
             await resetPassword(emailToUse)
             setMessage(`Password reset email successfully sent to: ${emailToUse}`)
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Could not reset password")
+            setMessage(cleanErrorMessage(error))
         } finally {
             setLoading(false)
         }
@@ -140,12 +170,7 @@ export default function LoginPage() {
                 }
                 setStep(1)
             } catch (err: any) {
-                const errStr = String(err)
-                if (errStr.includes("auth/invalid-credential") || errStr.includes("auth/user-not-found") || errStr.includes("No account associated")) {
-                    setMessage("password or email incorrect try again")
-                } else {
-                    setMessage(err instanceof Error ? err.message : "Invalid identifier")
-                }
+                setMessage(cleanErrorMessage(err))
             } finally {
                 setLoading(false)
             }
