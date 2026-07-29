@@ -18,9 +18,6 @@ export function Wordmark({ className, showIcon = true }: { className?: string; s
   return (
     <span className={cn("flex items-center gap-2", className)}>
       {showIcon && <Logo className="h-8 w-8" />}
-      <span className="text-xl font-extrabold tracking-tight">
-        Vibez<span className="text-primary">Tube</span>
-      </span>
     </span>
   )
 }
