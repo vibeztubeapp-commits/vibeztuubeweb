@@ -311,6 +311,10 @@ export default function StatusPage() {
   const [comments, setComments] = useState<any[]>([])
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
+  const [liked, setLiked] = useState(false)
+  const [reposted, setReposted] = useState(false)
+  const [saved, setSaved] = useState(false)
+  
   const [parentReplyText, setParentReplyText] = useState("")
   const [postingReply, setPostingReply] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -324,6 +328,30 @@ export default function StatusPage() {
       }
     })
   }, [user])
+
+  useEffect(() => {
+    if (!user?.uid || !postId) return
+    const likeRef = doc(db, "posts", postId, "likes", user.uid)
+    return onSnapshot(likeRef, (snap) => {
+      setLiked(snap.exists())
+    })
+  }, [postId, user?.uid])
+
+  useEffect(() => {
+    if (!user?.uid || !postId) return
+    const repostRef = doc(db, "posts", postId, "reposts", user.uid)
+    return onSnapshot(repostRef, (snap) => {
+      setReposted(snap.exists())
+    })
+  }, [postId, user?.uid])
+
+  useEffect(() => {
+    if (!user?.uid || !postId) return
+    const bookmarkRef = doc(db, "bookmarks", `${user.uid}_${postId}`)
+    return onSnapshot(bookmarkRef, (snap) => {
+      setSaved(snap.exists())
+    })
+  }, [postId, user?.uid])
 
   // Real-time parent post listener and view increment
   useEffect(() => {
@@ -502,16 +530,16 @@ export default function StatusPage() {
                       <MessageCircle className="h-5 w-5" />
                       <span className="text-xs font-bold">{post.comments || 0}</span>
                     </button>
-                    <button onClick={() => void toggleRepostPost(post.id, false)} className="flex items-center gap-2 hover:text-emerald-500 transition-colors">
-                      <Repeat2 className="h-5 w-5" />
+                    <button onClick={() => void toggleRepostPost(post.id, reposted)} className={cn("flex items-center gap-2 hover:text-emerald-500 transition-colors", reposted && "text-emerald-500")}>
+                      <Repeat2 className={cn("h-5 w-5", reposted && "fill-current")} />
                       <span className="text-xs font-bold">{post.reposts || 0}</span>
                     </button>
-                    <button onClick={() => void toggleLikePost(post.id, false)} className="flex items-center gap-2 hover:text-red-500 transition-colors">
-                      <Heart className="h-5 w-5" />
+                    <button onClick={() => void toggleLikePost(post.id, liked)} className={cn("flex items-center gap-2 hover:text-red-500 transition-colors", liked && "text-red-500")}>
+                      <Heart className={cn("h-5 w-5", liked && "fill-current")} />
                       <span className="text-xs font-bold">{post.likes || 0}</span>
                     </button>
-                    <button onClick={() => void toggleBookmarkPost(post.id, false)} className="flex items-center gap-2 hover:text-primary transition-colors">
-                      <Bookmark className="h-5 w-5" />
+                    <button onClick={() => void toggleBookmarkPost(post.id, saved)} className={cn("flex items-center gap-2 hover:text-primary transition-colors", saved && "text-primary")}>
+                      <Bookmark className={cn("h-5 w-5", saved && "fill-current")} />
                       <span className="text-xs font-bold">{post.bookmarks || 0}</span>
                     </button>
                     <button

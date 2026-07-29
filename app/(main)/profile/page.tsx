@@ -35,6 +35,43 @@ function ProfileView() {
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
 
+  const [showFollowsModal, setShowFollowsModal] = useState(false)
+  const [followsModalType, setFollowsModalType] = useState<"followers" | "following">("followers")
+  const [followsList, setFollowsList] = useState<any[]>([])
+  const [loadingFollows, setLoadingFollows] = useState(false)
+
+  const openFollowsModal = async (type: "followers" | "following") => {
+    setFollowsModalType(type)
+    setShowFollowsModal(true)
+    setLoadingFollows(true)
+    setFollowsList([])
+    
+    try {
+      const q = query(
+        collection(db, "follows"),
+        where(type === "followers" ? "followeeUid" : "followerUid", "==", targetUid)
+      )
+      const snap = await getDocs(q)
+      const list: any[] = []
+      
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data()
+        const otherUid = type === "followers" ? data.followerUid : data.followeeUid
+        if (otherUid) {
+          const profileData = await getUserProfile(otherUid)
+          if (profileData) {
+            list.push({ ...profileData, uid: otherUid })
+          }
+        }
+      }
+      setFollowsList(list)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingFollows(false)
+    }
+  }
+
   useEffect(() => {
     if (!user || !targetUid || targetUid === user.uid) return
     const followRef = doc(db, "follows", `${user.uid}_${targetUid}`)
@@ -145,10 +182,11 @@ function ProfileView() {
           const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
           return timeB - timeA
         })
-        setPosts(postsList)
+        // Set posts state to original posts only (repostOf is null or undefined)
+        setPosts(postsList.filter((p: any) => !p.repostOf))
 
         // Filter Media posts
-        setMedia(postsList.filter((p: any) => p.media && p.media.length > 0))
+        setMedia(postsList.filter((p: any) => !p.repostOf && p.media && p.media.length > 0))
 
         // Query comments (Replies)
         const qReplies = query(
@@ -427,12 +465,12 @@ function ProfileView() {
               </div>
 
               <div className="flex gap-4 text-sm pt-1">
-                <span className="text-muted-foreground">
+                <button onClick={() => void openFollowsModal("following")} className="text-muted-foreground hover:underline cursor-pointer">
                   <strong className="text-foreground font-semibold">{followingCount}</strong> Following
-                </span>
-                <span className="text-muted-foreground">
+                </button>
+                <button onClick={() => void openFollowsModal("followers")} className="text-muted-foreground hover:underline cursor-pointer">
                   <strong className="text-foreground font-semibold">{followersCount}</strong> Followers
-                </span>
+                </button>
               </div>
             </div>
           </div>
@@ -659,6 +697,63 @@ function ProfileView() {
                   placeholder="e.g. vibeztube.com"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follows List Modal Dialog */}
+      {showFollowsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-lg font-bold capitalize">
+                {followsModalType === "followers" ? "Followers" : "Following"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowFollowsModal(false)}
+                className="rounded-full p-1.5 hover:bg-accent text-muted-foreground transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
+              {loadingFollows ? (
+                <div className="py-12 flex justify-center items-center text-xs text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                  Loading list...
+                </div>
+              ) : followsList.length > 0 ? (
+                <div className="divide-y divide-border/40">
+                  {followsList.map((u) => (
+                    <div 
+                      key={u.uid || u.id}
+                      onClick={() => {
+                        setShowFollowsModal(false)
+                        router.push(`/profile?uid=${u.uid || u.id}`)
+                      }}
+                      className="flex items-center gap-3 py-3 px-2 hover:bg-accent/40 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <UserAvatar user={u} className="h-9 w-9 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-xs flex items-center gap-0.5 text-foreground truncate">
+                          <span>{u.displayName || u.name || "User"}</span>
+                          <VerifiedBadge type={u.verifiedBadge} />
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">@{u.username || "username"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-xs text-muted-foreground">
+                  No {followsModalType} found.
+                </div>
+              )}
             </div>
           </div>
         </div>

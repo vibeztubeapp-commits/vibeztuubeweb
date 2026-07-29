@@ -246,7 +246,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
           <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{displayPost.text}</p>
 
           {displayPost.media?.length ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-3 overflow-hidden rounded-2xl border border-border">
               {displayPost.media.map((m, i) => {
                 const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
                 return (

@@ -536,6 +536,7 @@ export async function toggleRepostPost(postId: string, currentReposted: boolean)
     if (currentReposted) {
         await deleteDoc(repostRef)
         await updateDoc(postRef, { reposts: increment(-1) })
+        await logUserActivity("unrepost", { postId })
         // Remove repost document from feed
         const q = query(collection(db, "posts"), where("repostOf", "==", postId), where("authorId", "==", uid))
         const snap = await getDocs(q)
@@ -545,6 +546,7 @@ export async function toggleRepostPost(postId: string, currentReposted: boolean)
     } else {
         await setDoc(repostRef, { uid, createdAt: serverTimestamp() })
         await updateDoc(postRef, { reposts: increment(1) })
+        await logUserActivity("repost", { postId })
         // Create repost document on feed
         await addDoc(collection(db, "posts"), {
             authorId: uid,
@@ -617,6 +619,7 @@ export async function toggleBookmarkPost(postId: string, currentBookmarked: bool
     if (currentBookmarked) {
         await deleteDoc(bookmarkRef)
         await updateDoc(postRef, { bookmarks: increment(-1) })
+        await logUserActivity("unbookmark", { postId })
     } else {
         await setDoc(bookmarkRef, {
             uid,
@@ -624,6 +627,7 @@ export async function toggleBookmarkPost(postId: string, currentBookmarked: bool
             createdAt: serverTimestamp()
         })
         await updateDoc(postRef, { bookmarks: increment(1) })
+        await logUserActivity("bookmark", { postId })
     }
 }
 
