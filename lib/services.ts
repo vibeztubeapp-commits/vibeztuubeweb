@@ -1,4 +1,4 @@
-import { doc, setDoc, collection, getDocs, limit, orderBy, query, serverTimestamp, updateDoc, increment, addDoc, getDoc, deleteDoc, where, onSnapshot, type DocumentData } from "firebase/firestore"
+import { doc, setDoc, collection, getDocs, limit, orderBy, query, serverTimestamp, updateDoc, increment, addDoc, getDoc, deleteDoc, where, onSnapshot, startAfter, type DocumentData } from "firebase/firestore"
 import { getFunctions, httpsCallable } from "firebase/functions"
 import app from "@/lib/firebase"
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage"
@@ -655,5 +655,37 @@ export async function toggleBookmarkComment(postId: string, commentId: string, c
             createdAt: serverTimestamp()
         })
         await updateDoc(commentRef, { bookmarks: increment(1) })
+    }
+}
+
+export async function fetchPaginatedPosts(lastVisibleDoc: any = null, limitCount: number = 10) {
+    const postsRef = collection(db, "posts")
+    let q = query(postsRef, orderBy("createdAt", "desc"), limit(limitCount))
+    if (lastVisibleDoc) {
+        q = query(postsRef, orderBy("createdAt", "desc"), startAfter(lastVisibleDoc), limit(limitCount))
+    }
+    const snap = await getDocs(q)
+    const postsList = snap.docs.map((doc) => {
+        const data = doc.data() as DocumentData
+        return {
+            id: doc.id,
+            authorId: data.authorId || "guest",
+            repostOf: data.repostOf || null,
+            timeAgo: data.timeAgo || "just now",
+            createdAt: data.createdAt,
+            text: data.text || "",
+            media: data.media || [],
+            likes: Number(data.likes || 0),
+            comments: Number(data.comments || 0),
+            reposts: Number(data.reposts || 0),
+            bookmarks: Number(data.bookmarks || 0),
+            shares: Number(data.shares || 0),
+            views: String(data.views || "0"),
+            liked: Boolean(data.liked),
+        }
+    })
+    return {
+        posts: postsList,
+        lastDoc: snap.docs[snap.docs.length - 1] || null
     }
 }

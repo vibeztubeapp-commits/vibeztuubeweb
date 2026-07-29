@@ -11,6 +11,7 @@ import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPos
 import { useAuth } from "@/components/auth-provider"
 import { doc, onSnapshot } from "firebase/firestore"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { useEngagement } from "@/components/engagement-provider"
 
 function Action({
   icon: Icon,
@@ -120,35 +121,12 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     }
   }, [post.authorId])
 
-  const [liked, setLiked] = useState(false)
-  const [reposted, setReposted] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const { isLiked, isReposted, isBookmarked } = useEngagement()
+  const liked = isLiked(post.id)
+  const reposted = isReposted(post.id)
+  const saved = isBookmarked(post.id)
   const { user } = useAuth()
   const uid = user?.uid
-
-  useEffect(() => {
-    if (!uid) return
-    const likeRef = doc(db, "posts", post.id, "likes", uid)
-    return onSnapshot(likeRef, (snap) => {
-      setLiked(snap.exists())
-    })
-  }, [post.id, uid])
-
-  useEffect(() => {
-    if (!uid) return
-    const repostRef = doc(db, "posts", post.id, "reposts", uid)
-    return onSnapshot(repostRef, (snap) => {
-      setReposted(snap.exists())
-    })
-  }, [post.id, uid])
-
-  useEffect(() => {
-    if (!uid) return
-    const bookmarkRef = doc(db, "bookmarks", `${uid}_${post.id}`)
-    return onSnapshot(bookmarkRef, (snap) => {
-      setSaved(snap.exists())
-    })
-  }, [post.id, uid])
 
   const [reposterProfile, setReposterProfile] = useState<any>(null)
   const [originalPost, setOriginalPost] = useState<Post | null>(null)

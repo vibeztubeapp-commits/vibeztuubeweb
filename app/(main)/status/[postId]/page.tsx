@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComment, toggleLikePost, toggleRepostPost, incrementPostViews, toggleBookmarkPost, toggleBookmarkComment, incrementCommentViews } from "@/lib/services"
 import { doc, onSnapshot, collection, query, orderBy, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
+import { useEngagement } from "@/components/engagement-provider"
 import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon, Play, Pause } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -311,9 +312,10 @@ export default function StatusPage() {
   const [comments, setComments] = useState<any[]>([])
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
-  const [liked, setLiked] = useState(false)
-  const [reposted, setReposted] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const { isLiked, isReposted, isBookmarked } = useEngagement()
+  const liked = isLiked(postId)
+  const reposted = isReposted(postId)
+  const saved = isBookmarked(postId)
   
   const [parentReplyText, setParentReplyText] = useState("")
   const [postingReply, setPostingReply] = useState(false)
@@ -328,30 +330,6 @@ export default function StatusPage() {
       }
     })
   }, [user])
-
-  useEffect(() => {
-    if (!user?.uid || !postId) return
-    const likeRef = doc(db, "posts", postId, "likes", user.uid)
-    return onSnapshot(likeRef, (snap) => {
-      setLiked(snap.exists())
-    })
-  }, [postId, user?.uid])
-
-  useEffect(() => {
-    if (!user?.uid || !postId) return
-    const repostRef = doc(db, "posts", postId, "reposts", user.uid)
-    return onSnapshot(repostRef, (snap) => {
-      setReposted(snap.exists())
-    })
-  }, [postId, user?.uid])
-
-  useEffect(() => {
-    if (!user?.uid || !postId) return
-    const bookmarkRef = doc(db, "bookmarks", `${user.uid}_${postId}`)
-    return onSnapshot(bookmarkRef, (snap) => {
-      setSaved(snap.exists())
-    })
-  }, [postId, user?.uid])
 
   // Real-time parent post listener and view increment
   useEffect(() => {

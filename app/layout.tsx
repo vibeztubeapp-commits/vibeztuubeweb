@@ -41,6 +41,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
 }
 
+import { EngagementProvider } from "@/components/engagement-provider"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -51,7 +53,9 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <TooltipProvider delay={200}>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <EngagementProvider>{children}</EngagementProvider>
+            </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
