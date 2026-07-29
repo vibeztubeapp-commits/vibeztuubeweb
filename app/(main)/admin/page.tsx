@@ -120,11 +120,10 @@ export default function GetVerifiedPage() {
                   Unlock the classic light blue verification checkmark badge adjacent to your profile name across all pages.
                 </p>
                 <Button
-                  onClick={() => handleSubscribe("blue")}
-                  disabled={loadingBadge !== null || profile?.verifiedBadge === "blue"}
-                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                  disabled={true}
+                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
                 >
-                  {loadingBadge === "blue" ? "Processing..." : (profile?.verifiedBadge === "blue" ? "Subscribed" : "Subscribe")}
+                  Disabled
                 </Button>
               </div>
 
@@ -140,11 +139,10 @@ export default function GetVerifiedPage() {
                   Upgrade to the sleek grey checkmark badge style for a minimal aesthetic look.
                 </p>
                 <Button
-                  onClick={() => handleSubscribe("gray")}
-                  disabled={loadingBadge !== null || profile?.verifiedBadge === "gray"}
-                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                  disabled={true}
+                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
                 >
-                  {loadingBadge === "gray" ? "Processing..." : (profile?.verifiedBadge === "gray" ? "Subscribed" : "Subscribe")}
+                  Disabled
                 </Button>
               </div>
 
@@ -185,11 +183,10 @@ export default function GetVerifiedPage() {
                   Receive the prestigious gold badge checkmark verifying this account represents a verified business entity.
                 </p>
                 <Button
-                  onClick={() => handleSubscribe("gold")}
-                  disabled={loadingBadge !== null || profile?.verifiedBadge === "gold"}
-                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                  disabled={true}
+                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
                 >
-                  {loadingBadge === "gold" ? "Processing..." : (profile?.verifiedBadge === "gold" ? "Verified" : "Verify Organization")}
+                  Disabled
                 </Button>
               </div>
 
@@ -205,11 +202,10 @@ export default function GetVerifiedPage() {
                   Official government agencies, political leaders, or multilateral organizations identifier badge.
                 </p>
                 <Button
-                  onClick={() => handleSubscribe("gov")}
-                  disabled={loadingBadge !== null || profile?.verifiedBadge === "gov"}
-                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                  disabled={true}
+                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
                 >
-                  {loadingBadge === "gov" ? "Processing..." : (profile?.verifiedBadge === "gov" ? "Verified" : "Verify Org")}
+                  Disabled
                 </Button>
               </div>
             </div>
