@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
+import { PostCard } from "@/components/post-card"
 import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
 import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp, collectionGroup } from "firebase/firestore"
 import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing } from "lucide-react"
@@ -444,59 +445,72 @@ function ProfileView() {
           </div>
 
           {/* Timeline Feed Container */}
+          {/* Timeline Feed Container */}
           <div className="divide-y divide-border min-h-[300px]">
             {activeTab === "posts" && (
-              posts.length > 0 ? (
-                posts.map((p) => (
-                  <div key={p.id} className="p-4 flex gap-3">
-                    <UserAvatar user={profile} className="h-10 w-10 shrink-0" />
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <span className="font-bold text-sm">{profile?.displayName}</span>
-                        <VerifiedBadge type={profile?.verifiedBadge} />
-                        <span className="text-xs text-muted-foreground ml-1.5">@{profile?.username}</span>
-                      </div>
-                      <p className="text-sm mt-1 text-foreground leading-normal">{p.text}</p>
-                      {p.media && p.media.length > 0 && (
-                        <div className="mt-2 rounded-2xl overflow-hidden max-h-60 border border-border">
-                          <img src={p.media[0].src} alt="post media" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              posts.filter(p => !p.repostOf).length > 0 ? (
+                posts.filter(p => !p.repostOf).map((p) => (
+                  <PostCard key={p.id} post={p} />
                 ))
               ) : (
                 <div className="py-12 text-center text-sm text-muted-foreground">No posts yet.</div>
               )
             )}
 
+            {activeTab === "reposts" && (
+              reposts.length > 0 ? (
+                reposts.map((p) => (
+                  <PostCard key={p.id} post={p} />
+                ))
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">No reposts yet.</div>
+              )
+            )}
+
+            {activeTab === "likes" && (
+              likes.length > 0 ? (
+                likes.map((p) => (
+                  <PostCard key={p.id} post={p} />
+                ))
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">No liked posts yet.</div>
+              )
+            )}
+
             {activeTab === "media" && (
               media.length > 0 ? (
                 media.map((p) => (
-                  <div key={p.id} className="p-4 flex gap-3">
-                    <UserAvatar user={profile} className="h-10 w-10 shrink-0" />
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <span className="font-bold text-sm">{profile?.displayName}</span>
-                        <VerifiedBadge type={profile?.verifiedBadge} />
-                        <span className="text-xs text-muted-foreground ml-1.5">@{profile?.username}</span>
-                      </div>
-                      <p className="text-sm mt-1 text-foreground leading-normal">{p.text}</p>
-                      <div className="mt-2 rounded-2xl overflow-hidden max-h-60 border border-border">
-                        <img src={p.media[0].src} alt="post media" className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                  </div>
+                  <PostCard key={p.id} post={p} />
                 ))
               ) : (
                 <div className="py-12 text-center text-sm text-muted-foreground">No media posts found.</div>
               )
             )}
 
-            {["replies", "likes", "reposts"].includes(activeTab) && (
-              <div className="py-12 text-center text-sm text-muted-foreground capitalize">
-                No {activeTab} available.
-              </div>
+            {activeTab === "replies" && (
+              replies.length > 0 ? (
+                replies.map((reply) => (
+                  <div key={reply.id} className="p-4 hover:bg-accent/10 transition-colors">
+                    <div className="flex gap-2.5 items-start">
+                      <UserAvatar user={profile} className="h-8 w-8 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <span className="font-bold text-foreground">{profile?.displayName || "User"}</span>
+                          <VerifiedBadge type={profile?.verifiedBadge} />
+                          <span className="text-muted-foreground truncate">@{profile?.username}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">{formatDate(reply.createdAt)}</span>
+                        </div>
+                        <p className="text-[10px] text-primary font-medium mt-0.5">
+                          Replied on thread:
+                        </p>
+                        <p className="text-xs text-foreground/90 mt-1 whitespace-pre-wrap leading-relaxed">{reply.text}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">No replies yet.</div>
+              )
             )}
           </div>
         </div>
