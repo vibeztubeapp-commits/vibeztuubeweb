@@ -60,6 +60,23 @@ export default function ShortsPage() {
           })
         }
       }
+      
+      // Sort using TikTok-style algorithm: Likes (12x), Comments (15x), Reposts (18x) with soft recency bias
+      items.sort((a, b) => {
+        const aScore = (a.likes * 12) + (a.comments * 15) + (a.reposts * 18)
+        const bScore = (b.likes * 12) + (b.comments * 15) + (b.reposts * 18)
+        
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : Date.now()
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : Date.now()
+        const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
+        const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
+        
+        const aFinal = aScore - (aAgeHours * 0.8)
+        const bFinal = bScore - (bAgeHours * 0.8)
+        
+        return bFinal - aFinal
+      })
+
       setPosts(items)
       setLoading(false)
     })

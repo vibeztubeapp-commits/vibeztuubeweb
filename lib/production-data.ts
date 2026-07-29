@@ -14,6 +14,7 @@ export type Post = {
     authorId: string
     repostOf?: string | null
     timeAgo: string
+    createdAt?: any
     text: string
     media?: { type: "image" | "video"; src: string; aspect?: "video" | "square" | "portrait" }[]
     likes: number

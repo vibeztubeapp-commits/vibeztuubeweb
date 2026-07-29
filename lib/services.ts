@@ -186,18 +186,51 @@ export async function followUser(targetUid: string) {
     })
 }
 
+function rankPostsByXAlgorithm(posts: Post[]) {
+    return posts.sort((a, b) => {
+        const aLikes = Number(a.likes || 0)
+        const aReposts = Number(a.reposts || 0)
+        const aComments = Number(a.comments || 0)
+        const aBookmarks = Number(a.bookmarks || 0)
+        const aViews = Number(a.views || 0)
+
+        const bLikes = Number(b.likes || 0)
+        const bReposts = Number(b.reposts || 0)
+        const bComments = Number(b.comments || 0)
+        const bBookmarks = Number(b.bookmarks || 0)
+        const bViews = Number(b.views || 0)
+
+        // X-style weights: Reposts (15x), Comments (12x), Likes (10x), Bookmarks (8x), Views (0.5x)
+        const aScore = (aLikes * 10) + (aReposts * 15) + (aComments * 12) + (aBookmarks * 8) + (aViews * 0.5)
+        const bScore = (bLikes * 10) + (bReposts * 15) + (bComments * 12) + (bBookmarks * 8) + (bViews * 0.5)
+
+        // Time decay factor: decrease score by 1.5 units per hour since creation
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : Date.now()
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : Date.now()
+        const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
+        const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
+
+        const aFinalScore = aScore - (aAgeHours * 1.5)
+        const bFinalScore = bScore - (bAgeHours * 1.5)
+
+        return bFinalScore - aFinalScore
+    })
+}
+
 export async function getUserFeed(): Promise<Post[]> {
     try {
         const postsRef = collection(db, "posts")
-        const q = query(postsRef, orderBy("createdAt", "desc"), limit(20))
+        // Fetch a larger pool of latest posts to allow ranking recommendation
+        const q = query(postsRef, orderBy("createdAt", "desc"), limit(60))
         const snapshot = await getDocs(q)
-        return snapshot.docs.map((doc) => {
+        const posts = snapshot.docs.map((doc) => {
             const data = doc.data() as DocumentData
             return {
                 id: doc.id,
                 authorId: data.authorId || "guest",
                 repostOf: data.repostOf || null,
                 timeAgo: data.timeAgo || "just now",
+                createdAt: data.createdAt,
                 text: data.text || "",
                 media: data.media || [],
                 likes: Number(data.likes || 0),
@@ -209,6 +242,7 @@ export async function getUserFeed(): Promise<Post[]> {
                 liked: Boolean(data.liked),
             }
         })
+        return rankPostsByXAlgorithm(posts)
     } catch {
         return []
     }
@@ -220,7 +254,7 @@ export async function fetchPosts(): Promise<Post[]> {
 
 export function subscribePosts(callback: (posts: Post[]) => void) {
     const postsRef = collection(db, "posts")
-    const q = query(postsRef, orderBy("createdAt", "desc"), limit(20))
+    const q = query(postsRef, orderBy("createdAt", "desc"), limit(60))
     return onSnapshot(q, (snapshot) => {
         const postsList = snapshot.docs.map((doc) => {
             const data = doc.data() as DocumentData
@@ -229,6 +263,7 @@ export function subscribePosts(callback: (posts: Post[]) => void) {
                 authorId: data.authorId || "guest",
                 repostOf: data.repostOf || null,
                 timeAgo: data.timeAgo || "just now",
+                createdAt: data.createdAt,
                 text: data.text || "",
                 media: data.media || [],
                 likes: Number(data.likes || 0),
@@ -240,7 +275,7 @@ export function subscribePosts(callback: (posts: Post[]) => void) {
                 liked: Boolean(data.liked),
             }
         })
-        callback(postsList)
+        callback(rankPostsByXAlgorithm(postsList))
     }, (error) => {
         console.error("Error listening to posts:", error)
     })
