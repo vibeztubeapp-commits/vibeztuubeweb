@@ -51,10 +51,17 @@ export async function ensureProfile(user: FirebaseUser, overrides: Partial<Profi
     return nextProfile
 }
 
+const userProfileCache: Record<string, ProfileData | null> = {}
+
 export async function getUserProfile(uid: string): Promise<ProfileData | null> {
+    if (uid in userProfileCache) {
+        return userProfileCache[uid]
+    }
     const profileRef = doc(db, "profiles", uid)
     const snapshot = await getDoc(profileRef)
-    return snapshot.exists() ? (snapshot.data() as ProfileData) : null
+    const profile = snapshot.exists() ? (snapshot.data() as ProfileData) : null
+    userProfileCache[uid] = profile
+    return profile
 }
 
 export async function createPost(input: { authorId: string; text: string; media?: Array<{ type: string; src: string }>; audience?: string; location?: string }) {
