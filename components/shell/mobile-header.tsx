@@ -9,7 +9,7 @@ import { db, getUserProfile } from "@/lib/services"
 import { useEffect, useState } from "react"
 import { currentUser } from "@/lib/production-data"
 import { Bell, X, ShieldAlert, Heart, MessageCircle, UserPlus, AtSign, Radio, ShieldCheck, User, Settings } from "lucide-react"
-import { collection, query, where, onSnapshot, limit, orderBy } from "firebase/firestore"
+import { collection, query, where, onSnapshot, limit, orderBy, doc } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { VerifiedBadge } from "@/components/verified-badge"
@@ -38,7 +38,12 @@ export function MobileHeader() {
       setProfile(null)
       return
     }
-    void getUserProfile(user.uid).then(setProfile)
+    const profileRef = doc(db, "profiles", user.uid)
+    return onSnapshot(profileRef, (snap: any) => {
+      if (snap.exists()) {
+        setProfile({ uid: snap.id, ...snap.data() })
+      }
+    })
   }, [user])
 
   useEffect(() => {
