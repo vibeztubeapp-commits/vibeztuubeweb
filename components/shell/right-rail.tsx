@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import { Search, TrendingUp, Radio } from "lucide-react"
 import { Input } from "@/components/ui/input"
