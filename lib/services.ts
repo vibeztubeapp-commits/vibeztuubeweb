@@ -205,8 +205,14 @@ function rankPostsByXAlgorithm(posts: Post[]) {
         const bScore = (bLikes * 10) + (bReposts * 15) + (bComments * 12) + (bBookmarks * 8) + (bViews * 0.5)
 
         // Time decay factor: decrease score by 1.5 units per hour since creation
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : Date.now()
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : Date.now()
+        const getMs = (t: any) => {
+            if (!t) return Date.now()
+            if (t.seconds) return t.seconds * 1000
+            if (t.toDate) return t.toDate().getTime()
+            return new Date(t).getTime()
+        }
+        const aTime = getMs(a.createdAt)
+        const bTime = getMs(b.createdAt)
         const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
         const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
 

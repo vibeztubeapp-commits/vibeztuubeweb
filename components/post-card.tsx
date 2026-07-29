@@ -7,7 +7,7 @@ import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHo
 import { getUser, formatCount, formatTimeAgo, type Post } from "@/lib/production-data"
 import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
-import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost } from "@/lib/services"
+import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost, incrementPostViews } from "@/lib/services"
 import { useAuth } from "@/components/auth-provider"
 import { doc, onSnapshot } from "firebase/firestore"
 import { VerifiedBadge } from "@/components/verified-badge"
@@ -130,6 +130,12 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const displayAuthor = originalPost ? (originalAuthor || getUser(originalPost.authorId)) : (author || getUser(post.authorId))
 
   const router = useRouter()
+
+  useEffect(() => {
+    if (displayPost?.id) {
+      void incrementPostViews(displayPost.id)
+    }
+  }, [displayPost?.id])
 
   const handleCardClick = (e: React.MouseEvent) => {
     router.push(`/status/${displayPost.id}`)
