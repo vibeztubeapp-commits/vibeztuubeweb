@@ -126,7 +126,7 @@ export default function ShortsPage() {
 
   return (
     <AuthGuard>
-      <div className="relative flex h-[calc(100vh-65px)] w-full items-center justify-center bg-black overflow-hidden select-none">
+      <div className="relative flex h-[calc(100vh-65px)] w-full items-center justify-center bg-black overflow-hidden select-none py-4">
         
         {loading ? (
           <div className="text-white text-xs flex flex-col items-center gap-2">
@@ -134,7 +134,7 @@ export default function ShortsPage() {
             Loading Shorts Feed...
           </div>
         ) : posts.length > 0 ? (
-          <div className="h-full w-full max-w-[480px] overflow-y-scroll snap-y snap-mandatory scroll-smooth divide-y divide-zinc-900 scrollbar-none">
+          <div className="h-full w-full max-w-[450px] md:max-w-[380px] md:max-h-[640px] md:rounded-2xl md:border md:border-zinc-800 overflow-y-scroll snap-y snap-mandatory scroll-smooth divide-y divide-zinc-900 scrollbar-none shadow-2xl">
             {posts.map((post) => (
               <ShortPlayerCard
                 key={post.id}

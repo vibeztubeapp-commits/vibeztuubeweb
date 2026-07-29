@@ -166,6 +166,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
           id: snap.id,
           authorId: data.authorId || "guest",
           timeAgo: data.timeAgo || "just now",
+          createdAt: data.createdAt,
           text: data.text || "",
           media: data.media || [],
           likes: Number(data.likes || 0),
