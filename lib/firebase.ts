@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 
 const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAS7p_WMKQqYcvBcZJDeYrdxNLebsd7bOE",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "vibeztube-web-app.firebaseapp.com",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "vibeztube-web-app",
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "vibeztube-web-app.firebasestorage.app",
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "106376720287",
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:106376720287:web:1190695672959c845a57aa",
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAoUIT68gc4miCKot7iztgdV-nG6tNo044",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "vibeztube-dev-bc81c.firebaseapp.com",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "vibeztube-dev-bc81c",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "vibeztube-dev-bc81c.firebasestorage.app",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "889698576592",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:889698576592:web:76c5f9b3abbec2a0c996d5",
 }
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
