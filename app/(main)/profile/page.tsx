@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
 import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
 import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot } from "firebase/firestore"
-import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2 } from "lucide-react"
+import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useSearchParams } from "next/navigation"
 
@@ -30,6 +30,9 @@ function ProfileView() {
   const [likes, setLikes] = useState<any[]>([])
   const [reposts, setReposts] = useState<any[]>([])
 
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+
   useEffect(() => {
     if (!user || !targetUid || targetUid === user.uid) return
     const followRef = doc(db, "follows", `${user.uid}_${targetUid}`)
@@ -37,6 +40,22 @@ function ProfileView() {
       setFollowing(snap.exists())
     })
   }, [user, targetUid])
+
+  useEffect(() => {
+    if (!targetUid) return
+    const q = query(collection(db, "follows"), where("followeeUid", "==", targetUid))
+    return onSnapshot(q, (snap) => {
+      setFollowersCount(snap.size)
+    })
+  }, [targetUid])
+
+  useEffect(() => {
+    if (!targetUid) return
+    const q = query(collection(db, "follows"), where("followerUid", "==", targetUid))
+    return onSnapshot(q, (snap) => {
+      setFollowingCount(snap.size)
+    })
+  }, [targetUid])
 
   const handleFollowToggle = async () => {
     if (!user || !targetUid) return
@@ -279,10 +298,15 @@ function ProfileView() {
                   <Button
                     size="sm"
                     variant={following ? "outline" : "default"}
-                    className="rounded-full font-bold px-5 h-9"
+                    className="rounded-full h-9 w-9 p-0 flex items-center justify-center border border-border"
                     onClick={handleFollowToggle}
+                    title={following ? "Unfollow" : "Follow"}
                   >
-                    {following ? "Following" : "Follow"}
+                    {following ? (
+                      <UserCheck className="h-4.5 w-4.5 text-emerald-500" />
+                    ) : (
+                      <UserPlus className="h-4.5 w-4.5" />
+                    )}
                   </Button>
                 )}
               </div>
@@ -323,10 +347,10 @@ function ProfileView() {
 
               <div className="flex gap-4 text-sm pt-1">
                 <span className="text-muted-foreground">
-                  <strong className="text-foreground font-semibold">{profile?.followingCount || 0}</strong> Following
+                  <strong className="text-foreground font-semibold">{followingCount}</strong> Following
                 </span>
                 <span className="text-muted-foreground">
-                  <strong className="text-foreground font-semibold">{profile?.followersCount || 0}</strong> Followers
+                  <strong className="text-foreground font-semibold">{followersCount}</strong> Followers
                 </span>
               </div>
             </div>
