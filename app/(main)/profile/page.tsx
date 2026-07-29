@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
 import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
-import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot } from "firebase/firestore"
-import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck } from "lucide-react"
+import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore"
+import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useSearchParams } from "next/navigation"
 
@@ -56,6 +56,30 @@ function ProfileView() {
       setFollowingCount(snap.size)
     })
   }, [targetUid])
+
+  const [subscribed, setSubscribed] = useState(false)
+
+  useEffect(() => {
+    if (!user || !targetUid || targetUid === user.uid) return
+    const subRef = doc(db, "subscriptions", `${user.uid}_${targetUid}`)
+    return onSnapshot(subRef, (snap) => {
+      setSubscribed(snap.exists() && snap.data()?.enabled)
+    })
+  }, [user, targetUid])
+
+  const handleSubscribeToggle = async () => {
+    if (!user || !targetUid) return
+    const subRef = doc(db, "subscriptions", `${user.uid}_${targetUid}`)
+    try {
+      if (subscribed) {
+        await deleteDoc(subRef)
+      } else {
+        await setDoc(subRef, { followerUid: user.uid, creatorUid: targetUid, enabled: true, createdAt: serverTimestamp() })
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const handleFollowToggle = async () => {
     if (!user || !targetUid) return
@@ -295,19 +319,34 @@ function ProfileView() {
                     Edit Profile
                   </Button>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant={following ? "outline" : "default"}
-                    className="rounded-full h-9 w-9 p-0 flex items-center justify-center border border-border"
-                    onClick={handleFollowToggle}
-                    title={following ? "Unfollow" : "Follow"}
-                  >
-                    {following ? (
-                      <UserCheck className="h-4.5 w-4.5 text-emerald-500" />
-                    ) : (
-                      <UserPlus className="h-4.5 w-4.5" />
-                    )}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant={subscribed ? "default" : "outline"}
+                      className="rounded-full h-9 w-9 p-0 flex items-center justify-center border border-border"
+                      onClick={handleSubscribeToggle}
+                      title={subscribed ? "Turn off notifications" : "Turn on new post notifications"}
+                    >
+                      {subscribed ? (
+                        <BellRing className="h-4.5 w-4.5 text-primary" />
+                      ) : (
+                        <Bell className="h-4.5 w-4.5" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={following ? "outline" : "default"}
+                      className="rounded-full h-9 w-9 p-0 flex items-center justify-center border border-border"
+                      onClick={handleFollowToggle}
+                      title={following ? "Unfollow" : "Follow"}
+                    >
+                      {following ? (
+                        <UserCheck className="h-4.5 w-4.5 text-emerald-500" />
+                      ) : (
+                        <UserPlus className="h-4.5 w-4.5" />
+                      )}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>

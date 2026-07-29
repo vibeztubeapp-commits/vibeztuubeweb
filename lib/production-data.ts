@@ -115,3 +115,17 @@ export const backendStatus = {
     cloudinary: Boolean(process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "lxeo6vuu"),
     livekit: Boolean(process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://vibeztube-2619i9i2.livekit.cloud"),
 }
+
+export function formatTimeAgo(timestamp: any): string {
+    if (!timestamp) return "just now"
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    const diffMs = Date.now() - date.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffMins < 1) return "just now"
+    if (diffMins < 60) return `${diffMins}m`
+    if (diffHours < 24) return `${diffHours}h`
+    return `${diffDays}d`
+}

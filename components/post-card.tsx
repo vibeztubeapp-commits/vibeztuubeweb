@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHorizontal } from "lucide-react"
-import { getUser, formatCount, type Post } from "@/lib/production-data"
+import { getUser, formatCount, formatTimeAgo, type Post } from "@/lib/production-data"
 import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
 import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost } from "@/lib/services"
@@ -169,7 +169,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
               </span>
               <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
             </div>
-            <span className="text-muted-foreground">· {displayPost.timeAgo}</span>
+            <span className="text-muted-foreground">· {formatTimeAgo(displayPost.createdAt)}</span>
             <button
               type="button"
               aria-label="More"

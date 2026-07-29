@@ -104,6 +104,11 @@ service cloud.firestore {
       }
     }
 
+    // Subscriptions for new post notifications
+    match /subscriptions/{subscriptionId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.followerUid == request.auth.uid) && (request.resource == null || request.resource.data.followerUid == request.auth.uid);
+    }
+
     // Activities: authenticated creation for matching uid
     match /activities/{activityId} {
       allow read: if true;
