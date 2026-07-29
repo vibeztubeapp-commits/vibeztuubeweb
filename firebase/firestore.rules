@@ -115,6 +115,12 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
     }
 
+    // Feature notifications (launch notifications)
+    match /feature_notifications/{notificationId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
     // Fallback: allow reads, deny writes by default
     match /{document=**} {
       allow read: if true;
