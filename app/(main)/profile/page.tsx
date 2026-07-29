@@ -12,13 +12,14 @@ import { UserAvatar } from "@/components/user-avatar"
 import { PostCard } from "@/components/post-card"
 import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
 import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp, collectionGroup } from "firebase/firestore"
-import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing } from "lucide-react"
+import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing, MessageSquare } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 
 function ProfileView() {
   const { user, signOut } = useAuth()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const queryUid = searchParams?.get("uid")
   const targetUid = queryUid || user?.uid
 
@@ -352,6 +353,15 @@ function ProfileView() {
                   </Button>
                 ) : (
                   <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full h-9 w-9 p-0 flex items-center justify-center border border-border"
+                      onClick={() => router.push(`/messages?userId=${targetUid}`)}
+                      title="Chat"
+                    >
+                      <MessageSquare className="h-4.5 w-4.5" />
+                    </Button>
                     <Button
                       size="sm"
                       variant={subscribed ? "default" : "outline"}

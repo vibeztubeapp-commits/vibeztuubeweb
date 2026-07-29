@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { AuthGuard } from "@/components/auth-guard"
 import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { db, getUserProfile, searchUsers, createConversation, sendMessage } from "@/lib/services"
 import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, serverTimestamp, addDoc, getDocs, limit } from "firebase/firestore"
 import { Send, Search, ArrowLeft, MessageSquare, Plus, Loader2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 type ChatMessage = {
   id: string
@@ -30,9 +31,13 @@ type ConversationItem = {
   otherProfile?: any
 }
 
-export default function MessagesPage() {
+function MessagesView() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
+  const chatUserId = searchParams?.get("userId")
+
   const [conversations, setConversations] = useState<ConversationItem[]>([])
+  const [loadingConversations, setLoadingConversations] = useState(true)
   const [activeChat, setActiveChat] = useState<ConversationItem | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState("")
@@ -79,6 +84,7 @@ export default function MessagesPage() {
       })
 
       setConversations(list)
+      setLoadingConversations(false)
     })
 
     return () => unsub()
@@ -123,13 +129,30 @@ export default function MessagesPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  useEffect(() => {
+    if (!chatUserId || loadingConversations || !user) return
+    const matched = conversations.find((c) => c.userIds.includes(chatUserId))
+    if (matched) {
+      setActiveChat(matched)
+      setMobileThreadOpen(true)
+    } else {
+      const startNewChatFromParam = async () => {
+        const otherProfile = await getUserProfile(chatUserId)
+        if (otherProfile) {
+          await startChat({ id: chatUserId, ...otherProfile })
+        }
+      }
+      void startNewChatFromParam()
+    }
+  }, [chatUserId, loadingConversations, user])
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     setSearching(true)
     try {
       const results = await searchUsers(searchQuery)
       // Exclude active user from results
-      setSearchResults(results.filter((u: any) => u.id !== user?.uid))
+      setSearchResults(results.filter((u: any) => u.uid !== user?.uid && u.id !== user?.uid))
     } catch (err) {
       console.error(err)
     } finally {
@@ -139,9 +162,11 @@ export default function MessagesPage() {
 
   const startChat = async (recipient: any) => {
     if (!user) return
+    const recipientId = recipient.uid || recipient.id
+    if (!recipientId) return
     
     // Check if conversation already exists
-    const existing = conversations.find((c) => c.userIds.includes(recipient.id))
+    const existing = conversations.find((c) => c.userIds.includes(recipientId))
     if (existing) {
       setActiveChat(existing)
       setMobileThreadOpen(true)
@@ -152,13 +177,13 @@ export default function MessagesPage() {
 
     try {
       const cid = await createConversation({
-        userIds: [user.uid, recipient.id],
+        userIds: [user.uid, recipientId],
         lastMessage: "Conversation started",
       })
 
       const newConv: ConversationItem = {
         id: cid,
-        userIds: [user.uid, recipient.id],
+        userIds: [user.uid, recipientId],
         lastMessage: "Conversation started",
         updatedAt: new Date().toISOString(),
         otherProfile: recipient,
@@ -389,5 +414,13 @@ export default function MessagesPage() {
         <RightRail />
       </div>
     </AuthGuard>
+  )
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-xs text-muted-foreground">Loading chats...</div>}>
+      <MessagesView />
+    </Suspense>
   )
 }
