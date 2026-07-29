@@ -120,7 +120,7 @@ export function MobileHeader() {
     <>
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur-lg md:hidden">
         <button onClick={() => setIsSidebarOpen(true)} aria-label="Open sidebar menu" className="cursor-pointer">
-          <UserAvatar user={userToShow} className="h-9 w-9" />
+          <UserAvatar user={userToShow} className="h-9 w-9" disableLink={true} />
         </button>
         <Link href="/" aria-label="VibezTube home">
           <Wordmark />
