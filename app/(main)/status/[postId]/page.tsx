@@ -10,7 +10,7 @@ import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComment, toggleLikePost, toggleRepostPost, incrementPostViews, toggleBookmarkPost, toggleBookmarkComment } from "@/lib/services"
+import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComment, toggleLikePost, toggleRepostPost, incrementPostViews, toggleBookmarkPost, toggleBookmarkComment, incrementCommentViews } from "@/lib/services"
 import { doc, onSnapshot, collection, query, orderBy, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
 import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -71,6 +71,12 @@ function CommentCardItem({
     const bookmarkRef = doc(db, "bookmarks", `${uid}_${comment.id}`)
     return onSnapshot(bookmarkRef, (snap) => setSaved(snap.exists()))
   }, [comment.id, uid])
+
+  useEffect(() => {
+    if (postId && comment.id) {
+      void incrementCommentViews(postId, comment.id)
+    }
+  }, [postId, comment.id])
 
   const onLike = async () => {
     try {

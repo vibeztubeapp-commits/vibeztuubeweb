@@ -593,6 +593,11 @@ export async function incrementPostViews(postId: string) {
     await updateDoc(postRef, { views: increment(1) })
 }
 
+export async function incrementCommentViews(postId: string, commentId: string) {
+    const commentRef = doc(db, "posts", postId, "comments", commentId)
+    await updateDoc(commentRef, { views: increment(1) })
+}
+
 export async function toggleBookmarkPost(postId: string, currentBookmarked: boolean) {
     const uid = auth.currentUser?.uid
     if (!uid) return
