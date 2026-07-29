@@ -590,12 +590,20 @@ export async function toggleRepostComment(postId: string, commentId: string, cur
 
 export async function incrementPostViews(postId: string) {
     const postRef = doc(db, "posts", postId)
-    await updateDoc(postRef, { views: increment(1) })
+    const snap = await getDoc(postRef)
+    if (snap.exists()) {
+        const currentViews = Number(snap.data()?.views || 0)
+        await updateDoc(postRef, { views: currentViews + 1 })
+    }
 }
 
 export async function incrementCommentViews(postId: string, commentId: string) {
     const commentRef = doc(db, "posts", postId, "comments", commentId)
-    await updateDoc(commentRef, { views: increment(1) })
+    const snap = await getDoc(commentRef)
+    if (snap.exists()) {
+        const currentViews = Number(snap.data()?.views || 0)
+        await updateDoc(commentRef, { views: currentViews + 1 })
+    }
 }
 
 export async function toggleBookmarkPost(postId: string, currentBookmarked: boolean) {
