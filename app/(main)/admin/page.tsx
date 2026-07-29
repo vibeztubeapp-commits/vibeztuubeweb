@@ -120,10 +120,11 @@ export default function GetVerifiedPage() {
                   Unlock the classic light blue verification checkmark badge adjacent to your profile name across all pages.
                 </p>
                 <Button
-                  disabled={true}
-                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
+                  onClick={() => handleSubscribe("blue")}
+                  disabled={loadingBadge !== null || profile?.verifiedBadge === "blue"}
+                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
                 >
-                  Disabled
+                  {loadingBadge === "blue" ? "Processing..." : (profile?.verifiedBadge === "blue" ? "Subscribed" : "Subscribe")}
                 </Button>
               </div>
 
@@ -158,11 +159,10 @@ export default function GetVerifiedPage() {
                   Stand out with the royal dark purple verification badge profile aesthetic.
                 </p>
                 <Button
-                  onClick={() => handleSubscribe("purple")}
-                  disabled={loadingBadge !== null || profile?.verifiedBadge === "purple"}
-                  className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                  disabled={true}
+                  className="w-full rounded-full font-bold bg-muted text-muted-foreground cursor-not-allowed"
                 >
-                  {loadingBadge === "purple" ? "Processing..." : (profile?.verifiedBadge === "purple" ? "Subscribed" : "Subscribe")}
+                  Disabled
                 </Button>
               </div>
             </div>

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComment, toggleLikePost, toggleRepostPost, incrementPostViews, toggleBookmarkPost, toggleBookmarkComment, incrementCommentViews } from "@/lib/services"
 import { doc, onSnapshot, collection, query, orderBy, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
-import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon } from "lucide-react"
+import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon, Play, Pause } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function CommentCardItem({
@@ -244,6 +244,62 @@ function CommentCardItem({
   )
 }
 
+function CustomVideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [showCenterBtn, setShowCenterBtn] = useState(true)
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!videoRef.current) return
+    if (isPlaying) {
+      videoRef.current.pause()
+      setIsPlaying(false)
+      setShowCenterBtn(true)
+    } else {
+      videoRef.current.play().catch((err) => console.log(err))
+      setIsPlaying(true)
+      setShowCenterBtn(false)
+    }
+  }
+
+  return (
+    <div className="relative w-full h-auto max-h-[600px] bg-black flex items-center justify-center group overflow-hidden cursor-pointer rounded-xl" onClick={togglePlay}>
+      <video
+        ref={videoRef}
+        src={src}
+        playsInline
+        loop
+        className="w-full h-auto max-h-[600px] object-contain"
+        onPlay={() => {
+          setIsPlaying(true)
+          setShowCenterBtn(false)
+        }}
+        onPause={() => {
+          setIsPlaying(false)
+          setShowCenterBtn(true)
+        }}
+      />
+      
+      {/* Center Play/Pause Button overlay */}
+      <div 
+        className={cn(
+          "absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-300 pointer-events-none",
+          showCenterBtn || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+      >
+        <div className="h-14 w-14 flex items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm shadow-lg border border-white/20 transform scale-100 active:scale-95 transition-all">
+          {isPlaying ? (
+            <Pause className="h-6 w-6 fill-current" />
+          ) : (
+            <Play className="h-6 w-6 fill-current translate-x-0.5" />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function StatusPage() {
   const params = useParams()
   const router = useRouter()
@@ -416,17 +472,20 @@ export default function StatusPage() {
 
                   {post.media?.length > 0 && (
                     <div className="overflow-hidden rounded-xl border border-border">
-                      {post.media.map((m: any, idx: number) => (
-                        <div key={idx} className="relative aspect-video bg-muted">
-                          {m.src && (
-                            m.type === "video" || m.src.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) ? (
-                              <video src={m.src} controls className="w-full h-full object-cover" />
-                            ) : (
-                              <img src={m.src} alt="" className="w-full h-full object-cover" />
-                            )
-                          )}
-                        </div>
-                      ))}
+                      {post.media.map((m: any, idx: number) => {
+                        const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
+                        return (
+                          <div key={idx} className="relative bg-muted w-full flex items-center justify-center">
+                            {m.src && (
+                              isVideo ? (
+                                <CustomVideoPlayer src={m.src} />
+                              ) : (
+                                <img src={m.src} alt="" className="w-full h-auto max-h-[600px] object-contain" />
+                              )
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
 
