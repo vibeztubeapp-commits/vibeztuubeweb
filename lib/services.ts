@@ -508,12 +508,15 @@ export async function toggleLikePost(postId: string, currentLiked: boolean) {
     if (!uid) return
     const postRef = doc(db, "posts", postId)
     const likeRef = doc(db, "posts", postId, "likes", uid)
+    const userLikeRef = doc(db, "profiles", uid, "likes", postId)
 
     if (currentLiked) {
         await deleteDoc(likeRef)
+        await deleteDoc(userLikeRef)
         await updateDoc(postRef, { likes: increment(-1) })
     } else {
         await setDoc(likeRef, { uid, createdAt: serverTimestamp() })
+        await setDoc(userLikeRef, { postId, createdAt: serverTimestamp() })
         await updateDoc(postRef, { likes: increment(1) })
 
         const postSnap = await getDoc(postRef)
@@ -539,9 +542,11 @@ export async function toggleRepostPost(postId: string, currentReposted: boolean)
     if (!uid) return
     const postRef = doc(db, "posts", postId)
     const repostRef = doc(db, "posts", postId, "reposts", uid)
+    const userRepostRef = doc(db, "profiles", uid, "reposts", postId)
 
     if (currentReposted) {
         await deleteDoc(repostRef)
+        await deleteDoc(userRepostRef)
         await updateDoc(postRef, { reposts: increment(-1) })
         await logUserActivity("unrepost", { postId })
         // Remove repost document from feed
@@ -552,6 +557,7 @@ export async function toggleRepostPost(postId: string, currentReposted: boolean)
         }
     } else {
         await setDoc(repostRef, { uid, createdAt: serverTimestamp() })
+        await setDoc(userRepostRef, { postId, createdAt: serverTimestamp() })
         await updateDoc(postRef, { reposts: increment(1) })
         await logUserActivity("repost", { postId })
         // Create repost document on feed

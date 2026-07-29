@@ -30,28 +30,20 @@ export function EngagementProvider({ children }: { children: React.ReactNode }) 
       return
     }
 
-    // 1. Single listener for all likes
-    const qLikes = query(collectionGroup(db, "likes"), where("uid", "==", user.uid))
-    const unsubLikes = onSnapshot(qLikes, (snap) => {
+    // 1. Single listener for all likes (Simple subcollection, no composite index needed)
+    const unsubLikes = onSnapshot(collection(db, "profiles", user.uid, "likes"), (snap) => {
       const ids = new Set<string>()
       snap.docs.forEach((docSnap) => {
-        const postRef = docSnap.ref.parent.parent
-        if (postRef) {
-          ids.add(postRef.id)
-        }
+        ids.add(docSnap.id)
       })
       setLikedIds(ids)
     }, (err) => console.error("Error listening to user likes:", err))
 
-    // 2. Single listener for all reposts
-    const qReposts = query(collectionGroup(db, "reposts"), where("uid", "==", user.uid))
-    const unsubReposts = onSnapshot(qReposts, (snap) => {
+    // 2. Single listener for all reposts (Simple subcollection, no composite index needed)
+    const unsubReposts = onSnapshot(collection(db, "profiles", user.uid, "reposts"), (snap) => {
       const ids = new Set<string>()
       snap.docs.forEach((docSnap) => {
-        const postRef = docSnap.ref.parent.parent
-        if (postRef) {
-          ids.add(postRef.id)
-        }
+        ids.add(docSnap.id)
       })
       setRepostedIds(ids)
     }, (err) => console.error("Error listening to user reposts:", err))
