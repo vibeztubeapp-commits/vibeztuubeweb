@@ -144,7 +144,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
       {post.repostOf && (
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground px-4 pt-2.5 pb-0.5">
           <Repeat2 className="h-3 w-3 text-emerald-500" />
-          <span>{reposterProfile?.displayName || reposterProfile?.name || "Someone"} reposted</span>
+          <span>{post.authorId === uid ? "You" : (reposterProfile?.displayName || reposterProfile?.name || "Someone")} reposted</span>
         </div>
       )}
 

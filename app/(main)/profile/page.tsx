@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
 import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
-import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp, collectionGroup } from "firebase/firestore"
 import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useSearchParams } from "next/navigation"
@@ -149,13 +149,44 @@ function ProfileView() {
         setMedia(postsList.filter((p: any) => p.media && p.media.length > 0))
 
         // Query comments (Replies)
-        // For simplicity, find comments authored by user in posts
-        // We can query posts, or look at a user-replies tracking
-        const commentsList: any[] = []
-        setReplies(commentsList)
+        const qReplies = query(
+          collectionGroup(db, "comments"),
+          where("authorId", "==", targetUid)
+        )
+        const snapReplies = await getDocs(qReplies)
+        const repliesList = snapReplies.docs.map((d) => ({ id: d.id, ...d.data() }))
+        repliesList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
+          return timeB - timeA
+        })
+        setReplies(repliesList)
 
         // Query Likes
-        setLikes([])
+        const qLikes = query(
+          collectionGroup(db, "likes"),
+          where("uid", "==", targetUid)
+        )
+        const snapLikes = await getDocs(qLikes)
+        const likedPosts: any[] = []
+        for (const lDoc of snapLikes.docs) {
+          const postRef = lDoc.ref.parent.parent
+          if (postRef) {
+            const postSnap = await getDoc(postRef)
+            if (postSnap.exists()) {
+              likedPosts.push({ id: postSnap.id, ...postSnap.data() })
+            }
+          }
+        }
+        likedPosts.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
+          return timeB - timeA
+        })
+        setLikes(likedPosts)
+
+        // Query Reposts (Filter postsList where repostOf is present)
+        setReposts(postsList.filter((p: any) => p.repostOf != null))
       } catch (e) {
         console.error("Error loading timeline", e)
       }
