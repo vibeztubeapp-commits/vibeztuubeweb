@@ -214,8 +214,10 @@ function rankPostsByXAlgorithm(posts: Post[]) {
         const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
         const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
 
-        const aFinalScore = aScore - (aAgeHours * 1.5)
-        const bFinalScore = bScore - (bAgeHours * 1.5)
+        // Gravity decay formula: Score / (AgeHours + 2)^1.8
+        // We add a base cold-start freshness boost of 150 points so new posts rank high initially
+        const aFinalScore = (aScore + 150) / Math.pow(aAgeHours + 2, 1.8)
+        const bFinalScore = (bScore + 150) / Math.pow(bAgeHours + 2, 1.8)
 
         return bFinalScore - aFinalScore
     })
