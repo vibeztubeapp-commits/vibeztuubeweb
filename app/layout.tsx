@@ -42,6 +42,7 @@ export const viewport: Viewport = {
 }
 
 import { EngagementProvider } from "@/components/engagement-provider"
+import { PopupProvider } from "@/components/popup-provider"
 
 export default function RootLayout({
   children,
@@ -54,7 +55,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <TooltipProvider delay={200}>
             <AuthProvider>
-              <EngagementProvider>{children}</EngagementProvider>
+              <PopupProvider>
+                <EngagementProvider>{children}</EngagementProvider>
+              </PopupProvider>
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>

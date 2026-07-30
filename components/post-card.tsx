@@ -12,6 +12,7 @@ import { useAuth } from "@/components/auth-provider"
 import { doc, onSnapshot, getDoc } from "firebase/firestore"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useEngagement } from "@/components/engagement-provider"
+import { usePopup } from "@/components/popup-provider"
 
 function Action({
   icon: Icon,
@@ -95,6 +96,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const saved = isBookmarked(displayPost.id)
   const { user } = useAuth()
   const uid = user?.uid
+  const { showNotice, showWarning } = usePopup()
 
   useEffect(() => {
     if (!post.repostOf) return
@@ -209,7 +211,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        alert("Post boosted successfully!")
+                        showNotice("Boost Post", "This post has been boosted successfully to wider audiences!")
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -218,7 +220,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        alert("Post pinned to profile!")
+                        showNotice("Pin Post", "This post has been pinned to your profile timeline header.")
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -227,7 +229,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        alert("Content disclosure: Classified as general content.")
+                        showNotice("Content Disclosure", "This post is transparently disclosed as standard user-generated content.")
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -236,7 +238,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                     <button
                       onClick={() => {
                         setShowMenu(false)
-                        alert("Options changed successfully.")
+                        showNotice("Reply Permissions", "Permissions updated successfully: only people you follow can reply.")
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -252,12 +254,12 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                       View hidden replies
                     </button>
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         setShowMenu(false)
-                        if (confirm("Are you sure you want to delete this post?")) {
+                        showWarning("Delete Post", "Are you sure you want to delete this post? This action is permanent and cannot be undone.", async () => {
                           const { deleteDoc, doc } = await import("firebase/firestore")
                           await deleteDoc(doc(db, "posts", displayPost.id))
-                        }
+                        })
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-red-500/10 text-red-500 transition-colors flex items-center gap-2 cursor-pointer border-t border-border mt-1"
                     >
