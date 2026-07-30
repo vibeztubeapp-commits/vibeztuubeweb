@@ -187,70 +187,70 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
               <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
             </div>
             <span className="text-muted-foreground">· {formatTimeAgo(displayPost.createdAt)}</span>
-            <div className="relative ml-auto">
-              <button
-                type="button"
-                aria-label="More"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowMenu(!showMenu)
-                }}
-                className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-
-              {showMenu && (
-                <div 
-                  className="absolute right-0 mt-1 w-52 rounded-xl bg-card border border-border shadow-lg py-1.5 z-50 text-xs font-medium text-foreground"
-                  onClick={(e) => e.stopPropagation()}
+            {displayPost.authorId === uid && (
+              <div className="relative ml-auto">
+                <button
+                  type="button"
+                  aria-label="More"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowMenu(!showMenu)
+                  }}
+                  className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
                 >
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      alert("Post boosted successfully!")
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className="absolute right-0 mt-1 w-52 rounded-xl bg-card border border-border shadow-lg py-1.5 z-50 text-xs font-medium text-foreground"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Boost post
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      alert("Post pinned to profile!")
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    Pin to profile
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      alert("Content disclosure: Classified as general content.")
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    Content disclosure
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      alert("Options changed successfully.")
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    Change who can reply
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false)
-                      router.push(`/status/${displayPost.id}`)
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    View hidden replies
-                  </button>
-                  {displayPost.authorId === uid && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        alert("Post boosted successfully!")
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      Boost post
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        alert("Post pinned to profile!")
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      Pin to profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        alert("Content disclosure: Classified as general content.")
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      Content disclosure
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        alert("Options changed successfully.")
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      Change who can reply
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        router.push(`/status/${displayPost.id}`)
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      View hidden replies
+                    </button>
                     <button
                       onClick={async () => {
                         setShowMenu(false)
@@ -263,10 +263,10 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                     >
                       Delete post
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{displayPost.text}</p>
