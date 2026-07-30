@@ -76,8 +76,11 @@ export default function HomePage() {
     return () => unsubFollows()
   }, [user?.uid])
 
-  const unfollowed = targetProfiles.filter((p) => !followedUids.includes(p.uid))
-  const showGate = user?.uid && targetProfiles.length > 0 && unfollowed.length > 0
+  const isUserOnList = targetProfiles.some((p) => p.uid === user?.uid)
+  const unfollowed = targetProfiles
+    .filter((p) => p.uid !== user?.uid)
+    .filter((p) => !followedUids.includes(p.uid))
+  const showGate = user?.uid && !isUserOnList && targetProfiles.length > 0 && unfollowed.length > 0
 
   const handleFollowAll = async () => {
     for (const p of unfollowed) {
