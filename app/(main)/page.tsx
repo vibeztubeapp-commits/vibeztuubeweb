@@ -123,14 +123,20 @@ export default function HomePage() {
   const handleFollowAll = async () => {
     setFollowingAll(true)
     const uidsToFollow = unfollowed.map((p) => p.uid)
+    setFollowedUids((prev) => [...prev, ...uidsToFollow])
     try {
-      setFollowedUids((prev) => [...prev, ...uidsToFollow])
-      for (const uid of uidsToFollow) {
-        await followUser(uid)
-      }
+      await Promise.all(
+        uidsToFollow.map(async (uid) => {
+          try {
+            await followUser(uid)
+          } catch (err) {
+            console.error(`Failed to follow ${uid}`, err)
+            setFollowedUids((prev) => prev.filter((id) => id !== uid))
+          }
+        })
+      )
     } catch (err) {
-      console.error(err)
-      setFollowedUids((prev) => prev.filter((id) => !uidsToFollow.includes(id)))
+      console.error("Follow All failed", err)
     } finally {
       setFollowingAll(false)
     }
