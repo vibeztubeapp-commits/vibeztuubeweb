@@ -1,21 +1,50 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/components/auth-provider"
 import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { searchUsers, followUser } from "@/lib/services"
+import { searchUsers, followUser, db } from "@/lib/services"
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore"
 import { Search, Compass, UserPlus, Sparkles, TrendingUp } from "lucide-react"
 import Link from "next/link"
 
 export default function ExplorePage() {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [followedIds, setFollowedIds] = useState<string[]>([])
+  const [suggestedCreators, setSuggestedCreators] = useState<any[]>([])
+
+  useEffect(() => {
+    // 1. Resolve coordinators profiles
+    const fetchTargets = async () => {
+      const uids = ["@sironyeka", "@kingsholz", "@queenpreciousd", "@vpartnership", "@vibeztube", "@debest_nft", "@dammi_esq", "@addiee69019"]
+      const cleanHandles = uids.map((h) => h.replace("@", ""))
+      const profilesRef = collection(db, "profiles")
+      const q = query(profilesRef, where("username", "in", cleanHandles))
+      const snap = await getDocs(q)
+      const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
+      setSuggestedCreators(list)
+    }
+
+    // 2. Fetch logged-in user's follows
+    if (!user?.uid) return
+    const followsRef = collection(db, "follows")
+    const qFollows = query(followsRef, where("followerUid", "==", user.uid))
+    const unsubFollows = onSnapshot(qFollows, (snap) => {
+      const uids = snap.docs.map((d) => d.data().followeeUid)
+      setFollowedIds(uids)
+    })
+    
+    void fetchTargets()
+    return () => unsubFollows()
+  }, [user?.uid])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -119,21 +148,60 @@ export default function ExplorePage() {
               </p>
             </div>
           ) : (
-            /* Trending Topics Feed fallback */
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-primary" /> What's Trending
-              </h3>
-              
-              <div className="divide-y divide-border/60 bg-card rounded-2xl border border-border overflow-hidden">
-                {trends.map((t, idx) => (
-                  <div key={idx} className="p-4 flex flex-col transition-colors hover:bg-accent/20 cursor-pointer">
-                    <span className="text-[10px] text-muted-foreground">{t.category}</span>
-                    <span className="text-sm font-bold text-foreground mt-0.5">{t.tag}</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">{t.posts}</span>
-                  </div>
-                ))}
+            /* Trending Topics Feed fallback + Suggested Followers */
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4 text-primary" /> What's Trending
+                </h3>
+                
+                <div className="divide-y divide-border/60 bg-card rounded-2xl border border-border overflow-hidden">
+                  {trends.map((t, idx) => (
+                    <div key={idx} className="p-4 flex flex-col transition-colors hover:bg-accent/20 cursor-pointer">
+                      <span className="text-[10px] text-muted-foreground">{t.category}</span>
+                      <span className="text-sm font-bold text-foreground mt-0.5">{t.tag}</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5">{t.posts}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {suggestedCreators.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-primary" /> Suggested Followers
+                  </h3>
+                  
+                  <div className="divide-y divide-border/60 bg-card rounded-2xl border border-border overflow-hidden">
+                    {suggestedCreators.map((p) => {
+                      const isFollowed = followedIds.includes(p.uid)
+                      return (
+                        <div key={p.uid} className="p-4 flex items-center justify-between gap-3 transition-colors hover:bg-accent/20">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <UserAvatar user={p} className="h-10 w-10 shrink-0" />
+                            <div className="min-w-0 text-left">
+                              <p className="font-bold text-sm text-foreground flex items-center gap-0.5">
+                                <span>{p.displayName || p.username}</span>
+                                <VerifiedBadge type={p.verifiedBadge} />
+                              </p>
+                              <p className="text-xs text-muted-foreground">@{p.username}</p>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => void handleFollow(p.uid)}
+                            disabled={isFollowed}
+                            variant="secondary"
+                            size="xs"
+                            className="rounded-full font-bold px-3 py-1 cursor-pointer shrink-0"
+                          >
+                            {isFollowed ? "Following" : "Follow"}
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

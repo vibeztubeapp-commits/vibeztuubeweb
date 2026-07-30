@@ -76,11 +76,33 @@ export default function HomePage() {
     return () => unsubFollows()
   }, [user?.uid])
 
+  const [skipped, setSkipped] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const skippedTime = localStorage.getItem("followGateSkippedAt")
+      if (skippedTime) {
+        const diffMs = Date.now() - Number(skippedTime)
+        const diffMins = diffMs / (1000 * 60)
+        if (diffMins < 30) {
+          setSkipped(true)
+        }
+      }
+    }
+  }, [])
+
+  const handleSkip = () => {
+    setSkipped(true)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("followGateSkippedAt", String(Date.now()))
+    }
+  }
+
   const isUserOnList = targetProfiles.some((p) => p.uid === user?.uid)
   const unfollowed = targetProfiles
     .filter((p) => p.uid !== user?.uid)
     .filter((p) => !followedUids.includes(p.uid))
-  const showGate = user?.uid && !isUserOnList && targetProfiles.length > 0 && unfollowed.length > 0
+  const showGate = user?.uid && !isUserOnList && targetProfiles.length > 0 && unfollowed.length > 0 && !skipped
 
   const [loadingUids, setLoadingUids] = useState<Record<string, boolean>>({})
   const [followingAll, setFollowingAll] = useState(false)
@@ -160,19 +182,19 @@ export default function HomePage() {
       </FeedColumn>
       <RightRail />
 
-      {/* Strict "Who to Follow" Gate Overlay */}
+      {/* Suggested Followers Gate Overlay */}
       {showGate && (
         <>
           {/* Desktop Overlay Modal */}
-          <div className="fixed inset-0 z-50 hidden md:flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-5 text-foreground animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 hidden md:flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none cursor-pointer" onClick={handleSkip}>
+            <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-5 text-foreground animate-in zoom-in-95 duration-200 cursor-default" onClick={(e) => e.stopPropagation()}>
               <div className="text-center space-y-2">
                 <div className="inline-flex p-3 rounded-full bg-purple-500/10 text-purple-400 animate-pulse">
                   <Sparkles className="h-6 w-6" />
                 </div>
-                <h2 className="text-lg font-black tracking-tight">Who to Follow</h2>
+                <h2 className="text-lg font-black tracking-tight">Suggested Followers</h2>
                 <p className="text-xs text-muted-foreground px-4 leading-relaxed">
-                  Welcome to VibezTube! To get started and customize your Home Feed experience, please follow the main platform coordinators:
+                  Welcome to VibezTube! Meet our platform creators. Tap anywhere on the screen to skip, or follow them:
                 </p>
               </div>
 
@@ -201,30 +223,36 @@ export default function HomePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-2 border-t border-zinc-900">
+              <div className="pt-2 border-t border-zinc-900 flex gap-2">
                 <button
                   onClick={() => void handleFollowAll()}
                   disabled={followingAll}
-                  className="w-full py-2.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <UserPlus className="h-4 w-4" /> {followingAll ? "Following All..." : "Follow All to Enter"}
+                  <UserPlus className="h-4 w-4" /> {followingAll ? "Following All..." : "Follow All"}
+                </button>
+                <button
+                  onClick={handleSkip}
+                  className="px-5 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-foreground font-black text-xs transition-colors cursor-pointer"
+                >
+                  Skip
                 </button>
               </div>
             </div>
           </div>
 
           {/* Mobile Bottom Screen Drawer Popup Overlay */}
-          <div className="fixed inset-0 z-50 flex md:hidden items-end justify-center bg-black/80 backdrop-blur-sm select-none">
-            <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-[32px] w-full max-h-[85vh] p-5 pb-8 shadow-2xl flex flex-col gap-4 text-foreground animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-0 z-50 flex md:hidden items-end justify-center bg-black/80 backdrop-blur-sm select-none cursor-pointer" onClick={handleSkip}>
+            <div className="bg-zinc-950 border-t border-zinc-800 rounded-t-[32px] w-full max-h-[85vh] p-5 pb-8 shadow-2xl flex flex-col gap-4 text-foreground animate-in slide-in-from-bottom duration-300 cursor-default" onClick={(e) => e.stopPropagation()}>
               {/* Grab handle indicator bar */}
               <div className="w-10 h-1 bg-zinc-800 rounded-full mx-auto" />
 
               <div className="text-center space-y-1.5 mt-1">
                 <h2 className="text-base font-black tracking-tight flex items-center justify-center gap-1.5">
-                  <Sparkles className="h-4.5 w-4.5 text-purple-400" /> Who to Follow
+                  <Sparkles className="h-4.5 w-4.5 text-purple-400" /> Suggested Followers
                 </h2>
                 <p className="text-[11px] text-muted-foreground px-4 leading-relaxed text-pretty">
-                  Customize your feed! Follow these accounts to unlock and enter the VibezTube feed:
+                  Meet our platform creators! Tap anywhere on the screen to skip, or follow them below:
                 </p>
               </div>
 
@@ -252,14 +280,20 @@ export default function HomePage() {
                 ))}
               </div>
 
-              {/* Bottom bulk follow button */}
-              <div className="pt-2">
+              {/* Bottom buttons */}
+              <div className="pt-2 flex gap-2">
                 <button
                   onClick={() => void handleFollowAll()}
                   disabled={followingAll}
-                  className="w-full py-3 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-3 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <UserPlus className="h-4.5 w-4.5" /> {followingAll ? "Following All..." : "Follow All to Enter"}
+                  <UserPlus className="h-4.5 w-4.5" /> {followingAll ? "Following All..." : "Follow All"}
+                </button>
+                <button
+                  onClick={handleSkip}
+                  className="px-6 py-3 rounded-full bg-zinc-900 hover:bg-zinc-800 text-foreground font-black text-xs transition-colors cursor-pointer"
+                >
+                  Skip
                 </button>
               </div>
             </div>
