@@ -99,6 +99,16 @@ export async function createComment(postId: string, input: { authorId: string; t
         const parentCommentRef = doc(db, "posts", postId, "comments", input.parentCommentId)
         await updateDoc(parentCommentRef, { comments: increment(1) })
     }
+    
+    // Save to user profile subcollection for timeline Replies tab
+    await setDoc(doc(db, "profiles", input.authorId, "replies", docRef.id), {
+        postId,
+        commentId: docRef.id,
+        text: input.text,
+        parentCommentId: input.parentCommentId || null,
+        createdAt: serverTimestamp()
+    })
+
     await logUserActivity("comment", { postId, commentId: docRef.id, text: input.text })
 
     const postSnap = await getDoc(postRef)
@@ -125,6 +135,16 @@ export async function createReply(postId: string, commentId: string, input: { au
         text: input.text,
         createdAt: serverTimestamp(),
     })
+
+    // Save to user profile subcollection for timeline Replies tab
+    await setDoc(doc(db, "profiles", input.authorId, "replies", docRef.id), {
+        postId,
+        commentId,
+        replyId: docRef.id,
+        text: input.text,
+        createdAt: serverTimestamp()
+    })
+
     await logUserActivity("reply", { postId, commentId, replyId: docRef.id, text: input.text })
 }
 
@@ -293,6 +313,65 @@ export function subscribePosts(callback: (posts: Post[]) => void) {
         console.error("Error listening to posts:", error)
     })
 }
+
+export function subscribeFollowingPosts(uid: string, callback: (posts: Post[]) => void) {
+    const followsRef = collection(db, "follows")
+    const qFollows = query(followsRef, where("followerUid", "==", uid))
+    
+    let unsubPosts: (() => void) | null = null
+    
+    const unsubFollows = onSnapshot(qFollows, (followsSnap) => {
+        if (unsubPosts) {
+            unsubPosts()
+            unsubPosts = null
+        }
+        
+        const followedUids = followsSnap.docs.map(doc => doc.data().followeeUid)
+        if (followedUids.length === 0) {
+            callback([])
+            return
+        }
+        
+        const chunk = followedUids.slice(0, 30)
+        const postsRef = collection(db, "posts")
+        const qPosts = query(postsRef, where("authorId", "in", chunk), orderBy("createdAt", "desc"), limit(60))
+        
+        unsubPosts = onSnapshot(qPosts, (postsSnap) => {
+            const postsList = postsSnap.docs.map((docSnap) => {
+                const data = docSnap.data()
+                return {
+                    id: docSnap.id,
+                    authorId: data.authorId || "guest",
+                    repostOf: data.repostOf || null,
+                    timeAgo: data.timeAgo || "just now",
+                    createdAt: data.createdAt,
+                    text: data.text || "",
+                    media: data.media || [],
+                    likes: Number(data.likes || 0),
+                    comments: Number(data.comments || 0),
+                    reposts: Number(data.reposts || 0),
+                    bookmarks: Number(data.bookmarks || 0),
+                    shares: Number(data.shares || 0),
+                    views: String(data.views || "0"),
+                    liked: Boolean(data.liked),
+                }
+            })
+            callback(postsList)
+        }, (err) => {
+            console.error("Error listening to following posts:", err)
+        })
+    }, (err) => {
+        console.error("Error listening to follows:", err)
+    })
+    
+    return () => {
+        unsubFollows()
+        if (unsubPosts) {
+            unsubPosts()
+        }
+    }
+}
+
 
 export async function uploadMedia(file: File, uid: string) {
     const storageRef = ref(storage, `uploads/${uid}/${Date.now()}_${file.name}`)

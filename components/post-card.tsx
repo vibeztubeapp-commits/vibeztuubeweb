@@ -9,7 +9,7 @@ import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
 import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost, incrementPostViews } from "@/lib/services"
 import { useAuth } from "@/components/auth-provider"
-import { doc, onSnapshot } from "firebase/firestore"
+import { doc, onSnapshot, getDoc } from "firebase/firestore"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useEngagement } from "@/components/engagement-provider"
 
@@ -48,56 +48,18 @@ function Action({
 
 function CustomVideoPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [showCenterBtn, setShowCenterBtn] = useState(true)
-
-  const togglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!videoRef.current) return
-    if (isPlaying) {
-      videoRef.current.pause()
-      setIsPlaying(false)
-      setShowCenterBtn(true)
-    } else {
-      videoRef.current.play().catch((err) => console.log(err))
-      setIsPlaying(true)
-      setShowCenterBtn(false)
-    }
-  }
 
   return (
-    <div className="relative w-full h-auto max-h-[600px] bg-black flex items-center justify-center group overflow-hidden cursor-pointer" onClick={togglePlay}>
+    <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
       <video
         ref={videoRef}
         src={src}
         playsInline
+        muted
+        autoPlay
         loop
-        className="w-full h-auto max-h-[600px] object-contain"
-        onPlay={() => {
-          setIsPlaying(true)
-          setShowCenterBtn(false)
-        }}
-        onPause={() => {
-          setIsPlaying(false)
-          setShowCenterBtn(true)
-        }}
+        className="w-full h-full object-cover"
       />
-      
-      {/* Center Play/Pause Button overlay */}
-      <div 
-        className={cn(
-          "absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-300 pointer-events-none",
-          showCenterBtn || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        )}
-      >
-        <div className="h-14 w-14 flex items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm shadow-lg border border-white/20 transform scale-100 active:scale-95 transition-all">
-          {isPlaying ? (
-            <Pause className="h-6 w-6 fill-current" />
-          ) : (
-            <Play className="h-6 w-6 fill-current translate-x-0.5" />
-          )}
-        </div>
-      </div>
     </div>
   )
 }
@@ -136,29 +98,36 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     if (!post.repostOf) return
     void getUserProfile(post.authorId).then((profile) => setReposterProfile(profile))
     
-    const origRef = doc(db, "posts", post.repostOf)
-    return onSnapshot(origRef, async (snap) => {
+    const loadOriginal = async (targetId: string) => {
+      const docRef = doc(db, "posts", targetId)
+      const snap = await getDoc(docRef)
       if (snap.exists()) {
         const data = snap.data()
-        const p = {
-          id: snap.id,
-          authorId: data.authorId || "guest",
-          timeAgo: data.timeAgo || "just now",
-          createdAt: data.createdAt,
-          text: data.text || "",
-          media: data.media || [],
-          likes: Number(data.likes || 0),
-          comments: Number(data.comments || 0),
-          reposts: Number(data.reposts || 0),
-          bookmarks: Number(data.bookmarks || 0),
-          shares: Number(data.shares || 0),
-          views: String(data.views || "0"),
+        if (data.repostOf) {
+          // Resolve next repost in chain
+          await loadOriginal(data.repostOf)
+        } else {
+          const p = {
+            id: snap.id,
+            authorId: data.authorId || "guest",
+            timeAgo: data.timeAgo || "just now",
+            createdAt: data.createdAt,
+            text: data.text || "",
+            media: data.media || [],
+            likes: Number(data.likes || 0),
+            comments: Number(data.comments || 0),
+            reposts: Number(data.reposts || 0),
+            bookmarks: Number(data.bookmarks || 0),
+            shares: Number(data.shares || 0),
+            views: String(data.views || "0"),
+          }
+          setOriginalPost(p as any)
+          const profile = await getUserProfile(data.authorId)
+          setOriginalAuthor(profile)
         }
-        setOriginalPost(p)
-        const profile = await getUserProfile(p.authorId)
-        setOriginalAuthor(profile)
       }
-    })
+    }
+    void loadOriginal(post.repostOf)
   }, [post.repostOf, post.authorId])
 
   const displayPost = originalPost || post
@@ -223,28 +192,43 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
 
           <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{displayPost.text}</p>
 
-          {displayPost.media?.length ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-border">
-              {displayPost.media.map((m, i) => {
-                const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
-                return (
-                  <div key={i} className="relative bg-muted w-full flex items-center justify-center">
-                    {m.src ? (
-                      isVideo ? (
-                        <CustomVideoPlayer src={m.src} />
-                      ) : (
-                        <img
-                          src={m.src}
-                          alt=""
-                          className="w-full h-auto max-h-[600px] object-contain"
-                        />
-                      )
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
-          ) : null}
+          {displayPost.media?.length ? (() => {
+            const count = displayPost.media.length
+            let gridClass = "grid gap-1.5"
+            if (count === 1) gridClass = "grid grid-cols-1"
+            else if (count === 2) gridClass = "grid grid-cols-2 aspect-[16/10]"
+            else if (count === 3) gridClass = "grid grid-cols-2 grid-rows-2 aspect-[16/10]"
+            else gridClass = "grid grid-cols-2 grid-rows-2 aspect-[16/10]"
+
+            return (
+              <div className={`mt-3 overflow-hidden rounded-2xl border border-border ${gridClass}`}>
+                {displayPost.media.map((m, i) => {
+                  const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
+                  
+                  let cellClass = "relative bg-muted w-full h-full flex items-center justify-center overflow-hidden"
+                  if (count === 3 && i === 0) {
+                    cellClass += " row-span-2"
+                  }
+
+                  return (
+                    <div key={i} className={cellClass}>
+                      {m.src ? (
+                        isVideo ? (
+                          <CustomVideoPlayer src={m.src} />
+                        ) : (
+                          <img
+                            src={m.src}
+                            alt=""
+                            className="w-full h-full object-cover cursor-pointer"
+                          />
+                        )
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })() : null}
 
           <div className="mt-3 flex items-center justify-between pr-1" onClick={(e) => e.stopPropagation()}>
             <Action icon={MessageCircle} count={displayPost.comments} label="Reply" onClick={() => router.push(`/status/${displayPost.id}`)} />

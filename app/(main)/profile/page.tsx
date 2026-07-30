@@ -188,12 +188,8 @@ function ProfileView() {
         // Filter Media posts
         setMedia(postsList.filter((p: any) => !p.repostOf && p.media && p.media.length > 0))
 
-        // Query comments (Replies)
-        const qReplies = query(
-          collectionGroup(db, "comments"),
-          where("authorId", "==", targetUid)
-        )
-        const snapReplies = await getDocs(qReplies)
+        // Query comments (Replies) (Simple collection query, no index needed)
+        const snapReplies = await getDocs(collection(db, "profiles", targetUid, "replies"))
         const repliesList = snapReplies.docs.map((d) => ({ id: d.id, ...d.data() }))
         repliesList.sort((a: any, b: any) => {
           const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
@@ -202,20 +198,14 @@ function ProfileView() {
         })
         setReplies(repliesList)
 
-        // Query Likes
-        const qLikes = query(
-          collectionGroup(db, "likes"),
-          where("uid", "==", targetUid)
-        )
-        const snapLikes = await getDocs(qLikes)
+        // Query Likes (Simple collection query, no index needed)
+        const snapLikes = await getDocs(collection(db, "profiles", targetUid, "likes"))
         const likedPosts: any[] = []
         for (const lDoc of snapLikes.docs) {
-          const postRef = lDoc.ref.parent.parent
-          if (postRef) {
-            const postSnap = await getDoc(postRef)
-            if (postSnap.exists()) {
-              likedPosts.push({ id: postSnap.id, ...postSnap.data() })
-            }
+          const postRef = doc(db, "posts", lDoc.id)
+          const postSnap = await getDoc(postRef)
+          if (postSnap.exists()) {
+            likedPosts.push({ id: postSnap.id, ...postSnap.data() })
           }
         }
         likedPosts.sort((a: any, b: any) => {
@@ -408,7 +398,7 @@ function ProfileView() {
                       title={subscribed ? "Turn off notifications" : "Turn on new post notifications"}
                     >
                       {subscribed ? (
-                        <BellRing className="h-4.5 w-4.5 text-primary" />
+                        <Bell className="h-4.5 w-4.5 fill-red-500 text-red-500" />
                       ) : (
                         <Bell className="h-4.5 w-4.5" />
                       )}
