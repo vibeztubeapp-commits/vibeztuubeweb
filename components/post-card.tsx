@@ -98,36 +98,42 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     if (!post.repostOf) return
     void getUserProfile(post.authorId).then((profile) => setReposterProfile(profile))
     
-    const loadOriginal = async (targetId: string) => {
+    let unsubNext: (() => void) | null = null
+    const loadOriginal = (targetId: string) => {
       const docRef = doc(db, "posts", targetId)
-      const snap = await getDoc(docRef)
-      if (snap.exists()) {
-        const data = snap.data()
-        if (data.repostOf) {
-          // Resolve next repost in chain
-          await loadOriginal(data.repostOf)
-        } else {
-          const p = {
-            id: snap.id,
-            authorId: data.authorId || "guest",
-            timeAgo: data.timeAgo || "just now",
-            createdAt: data.createdAt,
-            text: data.text || "",
-            media: data.media || [],
-            likes: Number(data.likes || 0),
-            comments: Number(data.comments || 0),
-            reposts: Number(data.reposts || 0),
-            bookmarks: Number(data.bookmarks || 0),
-            shares: Number(data.shares || 0),
-            views: String(data.views || "0"),
+      const unsub = onSnapshot(docRef, async (snap) => {
+        if (snap.exists()) {
+          const data = snap.data()
+          if (data.repostOf) {
+            if (unsubNext) unsubNext()
+            loadOriginal(data.repostOf)
+          } else {
+            const p = {
+              id: snap.id,
+              authorId: data.authorId || "guest",
+              timeAgo: data.timeAgo || "just now",
+              createdAt: data.createdAt,
+              text: data.text || "",
+              media: data.media || [],
+              likes: Number(data.likes || 0),
+              comments: Number(data.comments || 0),
+              reposts: Number(data.reposts || 0),
+              bookmarks: Number(data.bookmarks || 0),
+              shares: Number(data.shares || 0),
+              views: String(data.views || "0"),
+            }
+            setOriginalPost(p as any)
+            const profile = await getUserProfile(data.authorId)
+            setOriginalAuthor(profile)
           }
-          setOriginalPost(p as any)
-          const profile = await getUserProfile(data.authorId)
-          setOriginalAuthor(profile)
         }
-      }
+      })
+      unsubNext = unsub
     }
-    void loadOriginal(post.repostOf)
+    loadOriginal(post.repostOf)
+    return () => {
+      if (unsubNext) unsubNext()
+    }
   }, [post.repostOf, post.authorId])
 
   const displayPost = originalPost || post
