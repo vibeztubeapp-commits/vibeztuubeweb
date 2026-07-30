@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { AuthGuard } from "@/components/auth-guard"
 import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
@@ -8,7 +9,7 @@ import { RightRail } from "@/components/shell/right-rail"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { db, getUserProfile } from "@/lib/services"
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, writeBatch } from "firebase/firestore"
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, writeBatch, getDoc } from "firebase/firestore"
 import { Heart, MessageCircle, UserPlus, AtSign, ShieldAlert, Radio, Check, CheckCheck, Bell } from "lucide-react"
 
 type NotificationItem = {
@@ -21,10 +22,12 @@ type NotificationItem = {
   read: boolean
   createdAt: any
   senderProfile?: any
+  postSnippet?: string
 }
 
 export default function NotificationsPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [activeTab, setActiveTab] = useState<"all" | "like" | "comment" | "follow" | "mention" | "system">("all")
 
@@ -44,6 +47,19 @@ export default function NotificationsPage() {
         const data = changeDoc.data()
         const senderProfile = await getUserProfile(data.senderId || "guest")
         
+        let postSnippet = ""
+        if (data.postId) {
+          try {
+            const postRef = doc(db, "posts", data.postId)
+            const postSnap = await getDoc(postRef)
+            if (postSnap.exists()) {
+              postSnippet = postSnap.data().text || "[Media]"
+            }
+          } catch (e) {
+            console.error("Error fetching post snippet for notification", e)
+          }
+        }
+
         items.push({
           id: changeDoc.id,
           recipientId: data.recipientId,
@@ -54,6 +70,7 @@ export default function NotificationsPage() {
           read: Boolean(data.read),
           createdAt: data.createdAt,
           senderProfile,
+          postSnippet,
         })
       }
 
@@ -147,7 +164,21 @@ export default function NotificationsPage() {
                 {filteredNotifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`p-4 flex gap-3 transition-colors hover:bg-accent/30 ${
+                    onClick={async () => {
+                      if (!n.read) {
+                        try {
+                          await updateDoc(doc(db, "notifications", n.id), { read: true })
+                        } catch (e) {
+                          console.error(e)
+                        }
+                      }
+                      if (n.type === "follow") {
+                        router.push(`/profile?uid=${n.senderId}`)
+                      } else if (n.postId) {
+                        router.push(`/status/${n.postId}`)
+                      }
+                    }}
+                    className={`p-4 flex gap-3 transition-colors hover:bg-accent/30 cursor-pointer ${
                       !n.read ? "bg-primary/5" : ""
                     }`}
                   >
@@ -170,6 +201,12 @@ export default function NotificationsPage() {
                       <p className="text-sm text-foreground/90 mt-2">
                         {n.text}
                       </p>
+
+                      {n.postSnippet && (
+                        <div className="mt-2 text-xs text-muted-foreground border-l-2 border-primary/45 pl-3 py-1 bg-muted/20 rounded-r-lg max-w-md truncate">
+                          {n.postSnippet}
+                        </div>
+                      )}
                     </div>
 
                     {!n.read && (
