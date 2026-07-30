@@ -261,12 +261,12 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
               count={displayPost.likes}
               label="Like"
               active={liked}
-              activeClass="text-primary animate-pulse"
+              activeClass="text-red-500 animate-pulse"
               onClick={() => void toggleLikePost(displayPost.id, liked)}
             />
             <Action icon={Eye} count={displayPost.views} label="Views" />
             <div className="flex items-center">
-              <Action icon={Bookmark} count={displayPost.bookmarks} label="Save" active={saved} activeClass="text-primary animate-pulse" onClick={() => void toggleBookmarkPost(displayPost.id, saved)} />
+              <Action icon={Bookmark} count={displayPost.bookmarks} label="Save" active={saved} activeClass="text-purple-500 animate-pulse" onClick={() => void toggleBookmarkPost(displayPost.id, saved)} />
               <Action
                 icon={Share}
                 label="Share"
