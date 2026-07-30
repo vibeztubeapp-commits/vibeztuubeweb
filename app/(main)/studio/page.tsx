@@ -302,11 +302,10 @@ export default function VCreatorStudioPage() {
               </div>
 
               <Button
-                onClick={() => setPartnerApplied(true)}
-                disabled={partnerApplied || !meetsAll}
-                className="w-full rounded-full font-bold bg-white text-black hover:bg-neutral-200"
+                disabled={true}
+                className="w-full rounded-full font-bold bg-white/10 text-muted-foreground hover:bg-white/10 cursor-not-allowed"
               >
-                {partnerApplied ? "Application Under Review" : "Apply for Partnership Program"}
+                Coming Soon
               </Button>
             </div>
 
