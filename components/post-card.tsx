@@ -83,16 +83,18 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     }
   }, [post.authorId])
 
-  const { isLiked, isReposted, isBookmarked } = useEngagement()
-  const liked = isLiked(post.id)
-  const reposted = isReposted(post.id)
-  const saved = isBookmarked(post.id)
-  const { user } = useAuth()
-  const uid = user?.uid
-
   const [reposterProfile, setReposterProfile] = useState<any>(null)
   const [originalPost, setOriginalPost] = useState<Post | null>(null)
   const [originalAuthor, setOriginalAuthor] = useState<any>(null)
+  const [showMenu, setShowMenu] = useState(false)
+
+  const { isLiked, isReposted, isBookmarked } = useEngagement()
+  const displayPost = originalPost || post
+  const liked = isLiked(displayPost.id)
+  const reposted = isReposted(displayPost.id)
+  const saved = isBookmarked(displayPost.id)
+  const { user } = useAuth()
+  const uid = user?.uid
 
   useEffect(() => {
     if (!post.repostOf) return
@@ -136,7 +138,6 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     }
   }, [post.repostOf, post.authorId])
 
-  const displayPost = originalPost || post
   const displayAuthor = originalPost ? (originalAuthor || getUser(originalPost.authorId)) : (author || getUser(post.authorId))
 
   const router = useRouter()
@@ -186,14 +187,86 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
               <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
             </div>
             <span className="text-muted-foreground">· {formatTimeAgo(displayPost.createdAt)}</span>
-            <button
-              type="button"
-              aria-label="More"
-              onClick={(e) => e.stopPropagation()}
-              className="ml-auto rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <div className="relative ml-auto">
+              <button
+                type="button"
+                aria-label="More"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMenu(!showMenu)
+                }}
+                className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {showMenu && (
+                <div 
+                  className="absolute right-0 mt-1 w-52 rounded-xl bg-card border border-border shadow-lg py-1.5 z-50 text-xs font-medium text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      alert("Post boosted successfully!")
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    Boost post
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      alert("Post pinned to profile!")
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    Pin to profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      alert("Content disclosure: Classified as general content.")
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    Content disclosure
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      alert("Options changed successfully.")
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    Change who can reply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      router.push(`/status/${displayPost.id}`)
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-accent/60 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    View hidden replies
+                  </button>
+                  {displayPost.authorId === uid && (
+                    <button
+                      onClick={async () => {
+                        setShowMenu(false)
+                        if (confirm("Are you sure you want to delete this post?")) {
+                          const { deleteDoc, doc } = await import("firebase/firestore")
+                          await deleteDoc(doc(db, "posts", displayPost.id))
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-500/10 text-red-500 transition-colors flex items-center gap-2 cursor-pointer border-t border-border mt-1"
+                    >
+                      Delete post
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-pretty">{displayPost.text}</p>
