@@ -82,9 +82,35 @@ export default function HomePage() {
     .filter((p) => !followedUids.includes(p.uid))
   const showGate = user?.uid && !isUserOnList && targetProfiles.length > 0 && unfollowed.length > 0
 
+  const [loadingUids, setLoadingUids] = useState<Record<string, boolean>>({})
+  const [followingAll, setFollowingAll] = useState(false)
+
+  const handleFollowSingle = async (targetUid: string) => {
+    setLoadingUids((prev) => ({ ...prev, [targetUid]: true }))
+    try {
+      setFollowedUids((prev) => [...prev, targetUid])
+      await followUser(targetUid)
+    } catch (err) {
+      console.error(err)
+      setFollowedUids((prev) => prev.filter((id) => id !== targetUid))
+    } finally {
+      setLoadingUids((prev) => ({ ...prev, [targetUid]: false }))
+    }
+  }
+
   const handleFollowAll = async () => {
-    for (const p of unfollowed) {
-      await followUser(p.uid)
+    setFollowingAll(true)
+    const uidsToFollow = unfollowed.map((p) => p.uid)
+    try {
+      setFollowedUids((prev) => [...prev, ...uidsToFollow])
+      for (const uid of uidsToFollow) {
+        await followUser(uid)
+      }
+    } catch (err) {
+      console.error(err)
+      setFollowedUids((prev) => prev.filter((id) => !uidsToFollow.includes(id)))
+    } finally {
+      setFollowingAll(false)
     }
   }
 
@@ -164,10 +190,11 @@ export default function HomePage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => followUser(p.uid)}
-                      className="px-3.5 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                      onClick={() => void handleFollowSingle(p.uid)}
+                      disabled={loadingUids[p.uid]}
+                      className="px-3.5 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-bold transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Follow
+                      {loadingUids[p.uid] ? "Following..." : "Follow"}
                     </button>
                   </div>
                 ))}
@@ -176,10 +203,11 @@ export default function HomePage() {
               {/* Action Buttons */}
               <div className="pt-2 border-t border-zinc-900">
                 <button
-                  onClick={handleFollowAll}
-                  className="w-full py-2.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10"
+                  onClick={() => void handleFollowAll()}
+                  disabled={followingAll}
+                  className="w-full py-2.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <UserPlus className="h-4 w-4" /> Follow All to Enter
+                  <UserPlus className="h-4 w-4" /> {followingAll ? "Following All..." : "Follow All to Enter"}
                 </button>
               </div>
             </div>
@@ -214,10 +242,11 @@ export default function HomePage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => followUser(p.uid)}
-                      className="px-3.5 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 text-[11px] font-black transition-colors cursor-pointer shrink-0"
+                      onClick={() => void handleFollowSingle(p.uid)}
+                      disabled={loadingUids[p.uid]}
+                      className="px-3.5 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 text-[11px] font-black transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Follow
+                      {loadingUids[p.uid] ? "Following..." : "Follow"}
                     </button>
                   </div>
                 ))}
@@ -226,10 +255,11 @@ export default function HomePage() {
               {/* Bottom bulk follow button */}
               <div className="pt-2">
                 <button
-                  onClick={handleFollowAll}
-                  className="w-full py-3 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10"
+                  onClick={() => void handleFollowAll()}
+                  disabled={followingAll}
+                  className="w-full py-3 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-black text-xs transition-opacity cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <UserPlus className="h-4.5 w-4.5" /> Follow All to Enter
+                  <UserPlus className="h-4.5 w-4.5" /> {followingAll ? "Following All..." : "Follow All to Enter"}
                 </button>
               </div>
             </div>
