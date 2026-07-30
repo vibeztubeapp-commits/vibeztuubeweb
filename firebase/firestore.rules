@@ -31,33 +31,13 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if true;
       allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null && (
-        resource.data.authorId == request.auth.uid ||
-        request.resource.data.likes == resource.data.get('likes', 0) + 1 ||
-        request.resource.data.likes == resource.data.get('likes', 0) - 1 ||
-        request.resource.data.reposts == resource.data.get('reposts', 0) + 1 ||
-        request.resource.data.reposts == resource.data.get('reposts', 0) - 1 ||
-        request.resource.data.bookmarks == resource.data.get('bookmarks', 0) + 1 ||
-        request.resource.data.bookmarks == resource.data.get('bookmarks', 0) - 1 ||
-        request.resource.data.comments == resource.data.get('comments', 0) + 1 ||
-        request.resource.data.comments == resource.data.get('comments', 0) - 1
-      );
+      allow update: if request.auth != null;
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
 
       match /comments/{commentId} {
         allow read: if true;
         allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-        allow update: if request.auth != null && (
-          resource.data.authorId == request.auth.uid ||
-          request.resource.data.likes == resource.data.get('likes', 0) + 1 ||
-          request.resource.data.likes == resource.data.get('likes', 0) - 1 ||
-          request.resource.data.reposts == resource.data.get('reposts', 0) + 1 ||
-          request.resource.data.reposts == resource.data.get('reposts', 0) - 1 ||
-          request.resource.data.bookmarks == resource.data.get('bookmarks', 0) + 1 ||
-          request.resource.data.bookmarks == resource.data.get('bookmarks', 0) - 1 ||
-          request.resource.data.comments == resource.data.get('comments', 0) + 1 ||
-          request.resource.data.comments == resource.data.get('comments', 0) - 1
-        );
+        allow update: if request.auth != null;
         allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
 
         match /replies/{replyId} {
