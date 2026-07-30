@@ -32,6 +32,8 @@ export function MobileHeader() {
   const [showModal, setShowModal] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [followingCount, setFollowingCount] = useState(0)
+  const [followersCount, setFollowersCount] = useState(0)
 
   useEffect(() => {
     if (!user) {
@@ -99,6 +101,27 @@ export function MobileHeader() {
 
   const userToShow = profile || currentUser
 
+  useEffect(() => {
+    if (!userToShow?.uid) return
+
+    // Real-time followers count listener
+    const qFollowers = query(collection(db, "follows"), where("followeeUid", "==", userToShow.uid))
+    const unsubFollowers = onSnapshot(qFollowers, (snap) => {
+      setFollowersCount(snap.size)
+    })
+
+    // Real-time following count listener
+    const qFollowing = query(collection(db, "follows"), where("followerUid", "==", userToShow.uid))
+    const unsubFollowing = onSnapshot(qFollowing, (snap) => {
+      setFollowingCount(snap.size)
+    })
+
+    return () => {
+      unsubFollowers()
+      unsubFollowing()
+    }
+  }, [userToShow?.uid])
+
   const getIcon = (type: string) => {
     switch (type) {
       case "like":
@@ -159,6 +182,10 @@ export function MobileHeader() {
                       <VerifiedBadge type={userToShow.verifiedBadge} />
                     </h4>
                     <p className="text-xs text-muted-foreground">@{userToShow.username}</p>
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                      <span><strong className="text-foreground font-semibold">{followingCount}</strong> Following</span>
+                      <span><strong className="text-foreground font-semibold">{followersCount}</strong> Followers</span>
+                    </div>
                   </div>
                 </div>
                 <button
