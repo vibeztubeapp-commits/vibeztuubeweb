@@ -357,10 +357,120 @@ export default function StatusPage() {
   const liked = isLiked(postId)
   const reposted = isReposted(postId)
   const saved = isBookmarked(postId)
+  const { showNotice, showWarning, showError } = usePopup()
   
   const [parentReplyText, setParentReplyText] = useState("")
   const [postingReply, setPostingReply] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // Optimistic UI state overrides for parent post
+  const [optLiked, setOptLiked] = useState<boolean | null>(null)
+  const [optLikesCount, setOptLikesCount] = useState<number | null>(null)
+  const [optReposted, setOptReposted] = useState<boolean | null>(null)
+  const [optRepostsCount, setOptRepostsCount] = useState<number | null>(null)
+  const [optSaved, setOptSaved] = useState<boolean | null>(null)
+  const [optBookmarksCount, setOptBookmarksCount] = useState<number | null>(null)
+
+  // Reset optimistic overrides when server state updates
+  useEffect(() => {
+    setOptLiked(null)
+    setOptLikesCount(null)
+  }, [liked])
+
+  useEffect(() => {
+    setOptReposted(null)
+    setOptRepostsCount(null)
+  }, [reposted])
+
+  useEffect(() => {
+    setOptSaved(null)
+    setOptBookmarksCount(null)
+  }, [saved])
+
+  const currentLiked = optLiked !== null ? optLiked : liked
+  const currentLikesCount = optLikesCount !== null ? optLikesCount : Number(post?.likes || 0)
+  const currentReposted = optReposted !== null ? optReposted : reposted
+  const currentRepostsCount = optRepostsCount !== null ? optRepostsCount : Number(post?.reposts || 0)
+  const currentSaved = optSaved !== null ? optSaved : saved
+  const currentBookmarksCount = optBookmarksCount !== null ? optBookmarksCount : Number(post?.bookmarks || 0)
+
+  const handleLike = async () => {
+    if (!user?.uid) {
+      showNotice("Authentication Required", "Please sign in to like posts.")
+      return
+    }
+    const nextState = !currentLiked
+    setOptLiked(nextState)
+    setOptLikesCount(currentLikesCount + (nextState ? 1 : -1))
+    try {
+      await toggleLikePost(postId, currentLiked)
+    } catch (err: any) {
+      setOptLiked(null)
+      setOptLikesCount(null)
+      console.error("Parent Like operation failed", {
+        operation: "toggleLikePost",
+        uid: user.uid,
+        contentId: postId,
+        contentType: "post",
+        path: `posts/${postId}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Like Failed", "Couldn't update your Like. Please try again.")
+    }
+  }
+
+  const handleRepost = async () => {
+    if (!user?.uid) {
+      showNotice("Authentication Required", "Please sign in to repost content.")
+      return
+    }
+    const nextState = !currentReposted
+    setOptReposted(nextState)
+    setOptRepostsCount(currentRepostsCount + (nextState ? 1 : -1))
+    try {
+      await toggleRepostPost(postId, currentReposted)
+    } catch (err: any) {
+      setOptReposted(null)
+      setOptRepostsCount(null)
+      console.error("Parent Repost operation failed", {
+        operation: "toggleRepostPost",
+        uid: user.uid,
+        contentId: postId,
+        contentType: "post",
+        path: `posts/${postId}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Repost Failed", "Couldn't update your Repost. Please try again.")
+    }
+  }
+
+  const handleBookmark = async () => {
+    if (!user?.uid) {
+      showNotice("Authentication Required", "Please sign in to save bookmarks.")
+      return
+    }
+    const nextState = !currentSaved
+    setOptSaved(nextState)
+    setOptBookmarksCount(currentBookmarksCount + (nextState ? 1 : -1))
+    try {
+      await toggleBookmarkPost(postId, currentSaved)
+    } catch (err: any) {
+      setOptSaved(null)
+      setOptBookmarksCount(null)
+      console.error("Parent Bookmark operation failed", {
+        operation: "toggleBookmarkPost",
+        uid: user.uid,
+        contentId: postId,
+        contentType: "post",
+        path: `posts/${postId}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Bookmark Failed", "Couldn't update your Bookmark. Please try again.")
+    }
+  }
 
   useEffect(() => {
     if (!user?.uid) return
@@ -549,17 +659,17 @@ export default function StatusPage() {
                       <MessageCircle className="h-5 w-5" />
                       <span className="text-xs font-bold">{post.comments || 0}</span>
                     </button>
-                    <button onClick={() => void toggleRepostPost(post.id, reposted)} className={cn("flex items-center gap-2 hover:text-emerald-500 transition-colors", reposted && "text-emerald-500")}>
-                      <Repeat2 className={cn("h-5 w-5", reposted && "fill-current")} />
-                      <span className="text-xs font-bold">{post.reposts || 0}</span>
+                    <button onClick={() => void handleRepost()} className={cn("flex items-center gap-2 hover:text-emerald-500 transition-colors", currentReposted && "text-emerald-500")}>
+                      <Repeat2 className={cn("h-5 w-5", currentReposted && "fill-current")} />
+                      <span className="text-xs font-bold">{currentRepostsCount}</span>
                     </button>
-                    <button onClick={() => void toggleLikePost(post.id, liked)} className={cn("flex items-center gap-2 hover:text-red-500 transition-colors", liked && "text-red-500")}>
-                      <Heart className={cn("h-5 w-5", liked && "fill-current")} />
-                      <span className="text-xs font-bold">{post.likes || 0}</span>
+                    <button onClick={() => void handleLike()} className={cn("flex items-center gap-2 hover:text-red-500 transition-colors", currentLiked && "text-red-500")}>
+                      <Heart className={cn("h-5 w-5", currentLiked && "fill-current")} />
+                      <span className="text-xs font-bold">{currentLikesCount}</span>
                     </button>
-                    <button onClick={() => void toggleBookmarkPost(post.id, saved)} className={cn("flex items-center gap-2 hover:text-primary transition-colors", saved && "text-primary")}>
-                      <Bookmark className={cn("h-5 w-5", saved && "fill-current")} />
-                      <span className="text-xs font-bold">{post.bookmarks || 0}</span>
+                    <button onClick={() => void handleBookmark()} className={cn("flex items-center gap-2 hover:text-primary transition-colors", currentSaved && "text-primary")}>
+                      <Bookmark className={cn("h-5 w-5", currentSaved && "fill-current")} />
+                      <span className="text-xs font-bold">{currentBookmarksCount}</span>
                     </button>
                     <button
                       onClick={() => {
