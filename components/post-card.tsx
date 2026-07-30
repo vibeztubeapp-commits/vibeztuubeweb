@@ -189,7 +189,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
               <span className="truncate text-muted-foreground">@{displayAuthor.username}</span>
             </div>
             <span className="text-muted-foreground">· {formatTimeAgo(displayPost.createdAt)}</span>
-            {displayPost.authorId === uid && (
+            {post.authorId === uid && (
               <div className="relative ml-auto">
                 <button
                   type="button"
@@ -258,7 +258,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                         setShowMenu(false)
                         showWarning("Delete Post", "Are you sure you want to delete this post? This action is permanent and cannot be undone.", async () => {
                           const { deleteDoc, doc } = await import("firebase/firestore")
-                          await deleteDoc(doc(db, "posts", displayPost.id))
+                          await deleteDoc(doc(db, "posts", post.id))
                         })
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-red-500/10 text-red-500 transition-colors flex items-center gap-2 cursor-pointer border-t border-border mt-1"
