@@ -5,17 +5,22 @@ import { Search, TrendingUp, Radio } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
-import { trends, spaces, formatCount } from "@/lib/production-data"
+import { spaces, formatCount } from "@/lib/production-data"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { db, followUser } from "@/lib/services"
+import { db, followUser, getRealtimeTrends } from "@/lib/services"
 import { collection, query, where, limit, onSnapshot } from "firebase/firestore"
 
 export function RightRail() {
   const { user } = useAuth()
   const [allProfiles, setAllProfiles] = useState<any[]>([])
   const [followedIds, setFollowedIds] = useState<string[]>([])
+  const [realTrends, setRealTrends] = useState<any[]>([])
   const liveSpace = spaces.find((s) => s.live)
+
+  useEffect(() => {
+    void getRealtimeTrends().then((list) => setRealTrends(list))
+  }, [])
 
   useEffect(() => {
     // Fetch profiles
@@ -69,12 +74,12 @@ export function RightRail() {
           <TrendingUp className="h-4 w-4 text-primary" /> Trending
         </h2>
         <ul>
-          {trends.map((t) => (
+          {realTrends.map((t) => (
             <li key={t.tag}>
               <Link href="/explore" className="block px-4 py-3 transition-colors hover:bg-accent">
                 <p className="text-xs text-muted-foreground">{t.category}</p>
                 <p className="font-semibold">{t.tag}</p>
-                <p className="text-xs text-muted-foreground">{t.posts} posts</p>
+                <p className="text-xs text-muted-foreground">{t.posts}</p>
               </Link>
             </li>
           ))}

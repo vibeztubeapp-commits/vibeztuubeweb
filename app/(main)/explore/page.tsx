@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { searchUsers, followUser, db } from "@/lib/services"
+import { searchUsers, followUser, db, getRealtimeTrends } from "@/lib/services"
 import { collection, query, where, getDocs, onSnapshot, limit, orderBy } from "firebase/firestore"
 import { Search, Compass, UserPlus, Sparkles, TrendingUp, Play } from "lucide-react"
 import Link from "next/link"
@@ -50,52 +50,9 @@ export default function ExplorePage() {
           .slice(0, 5)
         setTrendingPosts(popularPosts)
 
-        // 3. Extract Hashtags and Categories
-        const tagCounts: Record<string, { tag: string; count: number; category: string; views: number }> = {}
-        allPosts.forEach(p => {
-          const hashtags = p.text?.match(/#\w+/g) || []
-          const views = Number(p.views || 0)
-          
-          let category = "Trending"
-          const textLower = (p.text || "").toLowerCase()
-          if (textLower.match(/(sport|football|soccer|basketball|tennis|olympics|game|match)/)) {
-            category = "Sports"
-          } else if (textLower.match(/(music|song|movie|entertainment|celeb|pop|star|show)/)) {
-            category = "Entertainment"
-          } else if (textLower.match(/(science|space|tech|ai|robot|physics|biology|health)/)) {
-            category = "Science"
-          } else if (textLower.match(/(news|politics|world|breaking)/)) {
-            category = "News"
-          }
-
-          hashtags.forEach((tag: string) => {
-            if (!tagCounts[tag]) {
-              tagCounts[tag] = { tag, count: 0, category, views: 0 }
-            }
-            tagCounts[tag].count += 1
-            tagCounts[tag].views += views
-          })
-        })
-
-        const sortedTopics = Object.values(tagCounts)
-          .sort((a, b) => (b.count * 1000 + b.views) - (a.count * 1000 + a.views))
-          .map(item => ({
-            tag: item.tag,
-            posts: `${item.count} post${item.count > 1 ? "s" : ""}`,
-            category: item.category
-          }))
-          .slice(0, 5)
-
-        if (sortedTopics.length === 0) {
-          setTrendingTopics([
-            { tag: "#VibezTube", posts: "1.2M posts", category: "Trending" },
-            { tag: "#VibezShorts", posts: "854K posts", category: "Entertainment" },
-            { tag: "#LiveStreaming", posts: "620K posts", category: "Technology" },
-            { tag: "#ExploreVibez", posts: "482K posts", category: "Sports" },
-          ])
-        } else {
-          setTrendingTopics(sortedTopics)
-        }
+        // 3. Resolve Real-time Trends (hashtags and words combined)
+        const realtrends = await getRealtimeTrends()
+        setTrendingTopics(realtrends)
       } catch (err) {
         console.error("Failed to fetch real-time trending data", err)
       }
