@@ -627,24 +627,43 @@ export default function StatusPage() {
 
                   <p className="text-base text-foreground whitespace-pre-wrap font-medium">{post.text}</p>
 
-                  {post.media?.length > 0 && (
-                    <div className="overflow-hidden rounded-xl border border-border">
-                      {post.media.map((m: any, idx: number) => {
-                        const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
-                        return (
-                          <div key={idx} className="relative bg-muted w-full flex items-center justify-center">
-                            {m.src && (
-                              isVideo ? (
-                                <CustomVideoPlayer src={m.src} />
-                              ) : (
-                                <img src={m.src} alt="" className="w-full h-auto max-h-[600px] object-contain" />
-                              )
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                  {post.media?.length ? (() => {
+                    const count = post.media.length
+                    let gridClass = "grid gap-1.5"
+                    if (count === 1) gridClass = "grid grid-cols-1"
+                    else if (count === 2) gridClass = "grid grid-cols-2 aspect-[16/10]"
+                    else if (count === 3) gridClass = "grid grid-cols-2 grid-rows-2 aspect-[16/10]"
+                    else gridClass = "grid grid-cols-2 grid-rows-2 aspect-[16/10]"
+
+                    return (
+                      <div className={`mt-3 overflow-hidden rounded-2xl border border-border ${gridClass}`}>
+                        {post.media.map((m: any, i: number) => {
+                          const isVideo = m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)
+                          
+                          let cellClass = "relative bg-muted w-full h-full flex items-center justify-center overflow-hidden"
+                          if (count === 3 && i === 0) {
+                            cellClass += " row-span-2"
+                          }
+
+                          return (
+                            <div key={i} className={cellClass}>
+                              {m.src ? (
+                                isVideo ? (
+                                  <CustomVideoPlayer src={m.src} />
+                                ) : (
+                                  <img
+                                    src={m.src}
+                                    alt=""
+                                    className="w-full h-full object-cover cursor-pointer"
+                                  />
+                                )
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })() : null}
 
                   {/* Timestamp and Views count row */}
                   <div className="text-xs text-muted-foreground pt-1 pb-3">
