@@ -14,7 +14,7 @@ import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComme
 import { doc, onSnapshot, collection, query, orderBy, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
 import { useEngagement } from "@/components/engagement-provider"
 import { usePopup } from "@/components/popup-provider"
-import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon, Play, Pause } from "lucide-react"
+import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon, Play, Pause, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function CommentCardItem({
@@ -362,6 +362,7 @@ export default function StatusPage() {
   const [parentReplyText, setParentReplyText] = useState("")
   const [postingReply, setPostingReply] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
 
   // Optimistic UI state overrides for parent post
   const [optLiked, setOptLiked] = useState<boolean | null>(null)
@@ -655,6 +656,10 @@ export default function StatusPage() {
                                     src={m.src}
                                     alt=""
                                     className="w-full h-full object-cover cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setActiveLightboxImage(m.src)
+                                    }}
                                   />
                                 )
                               ) : null}
@@ -766,6 +771,26 @@ export default function StatusPage() {
         </FeedColumn>
         <RightRail />
       </div>
+
+      {activeLightboxImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setActiveLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 text-white hover:text-neutral-300 p-2 bg-neutral-900/60 rounded-full cursor-pointer transition-colors"
+            onClick={() => setActiveLightboxImage(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img 
+            src={activeLightboxImage} 
+            alt="Preview" 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </AuthGuard>
   )
 }

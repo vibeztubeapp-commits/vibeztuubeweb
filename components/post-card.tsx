@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHorizontal, Play, Pause } from "lucide-react"
+import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHorizontal, Play, Pause, X } from "lucide-react"
 import { getUser, formatCount, formatTimeAgo, type Post } from "@/lib/production-data"
 import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
@@ -88,6 +88,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const [originalPost, setOriginalPost] = useState<Post | null>(null)
   const [originalAuthor, setOriginalAuthor] = useState<any>(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
 
   const { isLiked, isReposted, isBookmarked } = useEngagement()
   const displayPost = originalPost || post
@@ -410,6 +411,10 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                             src={m.src}
                             alt=""
                             className="w-full h-full object-cover cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveLightboxImage(m.src)
+                            }}
                           />
                         )
                       ) : null}
@@ -455,6 +460,26 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
           </div>
         </div>
       </article>
+
+      {activeLightboxImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setActiveLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 text-white hover:text-neutral-300 p-2 bg-neutral-900/60 rounded-full cursor-pointer transition-colors"
+            onClick={() => setActiveLightboxImage(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img 
+            src={activeLightboxImage} 
+            alt="Preview" 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
