@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { searchUsers, followUser, db } from "@/lib/services"
-import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore"
-import { Search, Compass, UserPlus, Sparkles, TrendingUp } from "lucide-react"
+import { collection, query, where, getDocs, onSnapshot, limit, orderBy } from "firebase/firestore"
+import { Search, Compass, UserPlus, Sparkles, TrendingUp, Play } from "lucide-react"
 import Link from "next/link"
+import { PostCard } from "@/components/post-card"
 
 export default function ExplorePage() {
   const { user } = useAuth()
@@ -20,6 +21,88 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(false)
   const [followedIds, setFollowedIds] = useState<string[]>([])
   const [suggestedCreators, setSuggestedCreators] = useState<any[]>([])
+  const [trendingTopics, setTrendingTopics] = useState<any[]>([])
+  const [trendingVideos, setTrendingVideos] = useState<any[]>([])
+  const [trendingPosts, setTrendingPosts] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchTrendingData = async () => {
+      try {
+        const postsRef = collection(db, "posts")
+        const q = query(postsRef, orderBy("createdAt", "desc"), limit(50))
+        const snap = await getDocs(q)
+        const allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() } as any))
+
+        // 1. Resolve Trending Videos (has video media, sorted by views descending)
+        const videoPosts = allPosts
+          .filter(p => p.media && p.media.some((m: any) => m.type === "video" || m.src?.match(/\.(mp4|webm|mov)/i)))
+          .sort((a, b) => Number(b.views || 0) - Number(a.views || 0))
+          .slice(0, 3)
+        setTrendingVideos(videoPosts)
+
+        // 2. Resolve Trending Posts (sorted by engagement score or views descending)
+        const popularPosts = [...allPosts]
+          .sort((a, b) => {
+            const aScore = Number(a.likes || 0) * 10 + Number(a.reposts || 0) * 15 + Number(a.views || 0)
+            const bScore = Number(b.likes || 0) * 10 + Number(b.reposts || 0) * 15 + Number(b.views || 0)
+            return bScore - aScore
+          })
+          .slice(0, 5)
+        setTrendingPosts(popularPosts)
+
+        // 3. Extract Hashtags and Categories
+        const tagCounts: Record<string, { tag: string; count: number; category: string; views: number }> = {}
+        allPosts.forEach(p => {
+          const hashtags = p.text?.match(/#\w+/g) || []
+          const views = Number(p.views || 0)
+          
+          let category = "Trending"
+          const textLower = (p.text || "").toLowerCase()
+          if (textLower.match(/(sport|football|soccer|basketball|tennis|olympics|game|match)/)) {
+            category = "Sports"
+          } else if (textLower.match(/(music|song|movie|entertainment|celeb|pop|star|show)/)) {
+            category = "Entertainment"
+          } else if (textLower.match(/(science|space|tech|ai|robot|physics|biology|health)/)) {
+            category = "Science"
+          } else if (textLower.match(/(news|politics|world|breaking)/)) {
+            category = "News"
+          }
+
+          hashtags.forEach((tag: string) => {
+            if (!tagCounts[tag]) {
+              tagCounts[tag] = { tag, count: 0, category, views: 0 }
+            }
+            tagCounts[tag].count += 1
+            tagCounts[tag].views += views
+          })
+        })
+
+        const sortedTopics = Object.values(tagCounts)
+          .sort((a, b) => (b.count * 1000 + b.views) - (a.count * 1000 + a.views))
+          .map(item => ({
+            tag: item.tag,
+            posts: `${item.count} post${item.count > 1 ? "s" : ""}`,
+            category: item.category
+          }))
+          .slice(0, 5)
+
+        if (sortedTopics.length === 0) {
+          setTrendingTopics([
+            { tag: "#VibezTube", posts: "1.2M posts", category: "Trending" },
+            { tag: "#VibezShorts", posts: "854K posts", category: "Entertainment" },
+            { tag: "#LiveStreaming", posts: "620K posts", category: "Technology" },
+            { tag: "#ExploreVibez", posts: "482K posts", category: "Sports" },
+          ])
+        } else {
+          setTrendingTopics(sortedTopics)
+        }
+      } catch (err) {
+        console.error("Failed to fetch real-time trending data", err)
+      }
+    }
+
+    void fetchTrendingData()
+  }, [])
 
   useEffect(() => {
     // 1. Resolve coordinators profiles
@@ -148,15 +231,15 @@ export default function ExplorePage() {
               </p>
             </div>
           ) : (
-            /* Trending Topics Feed fallback + Suggested Followers */
+            /* Real-time Explore Content Layout */
             <div className="space-y-6">
+              {/* 1. What's Trending */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <TrendingUp className="h-4 w-4 text-primary" /> What's Trending
                 </h3>
-                
                 <div className="divide-y divide-border/60 bg-card rounded-2xl border border-border overflow-hidden">
-                  {trends.map((t, idx) => (
+                  {trendingTopics.map((t, idx) => (
                     <div key={idx} className="p-4 flex flex-col transition-colors hover:bg-accent/20 cursor-pointer">
                       <span className="text-[10px] text-muted-foreground">{t.category}</span>
                       <span className="text-sm font-bold text-foreground mt-0.5">{t.tag}</span>
@@ -166,12 +249,12 @@ export default function ExplorePage() {
                 </div>
               </div>
 
+              {/* 2. Suggested Followers */}
               {suggestedCreators.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Sparkles className="h-4 w-4 text-primary" /> Suggested Followers
                   </h3>
-                  
                   <div className="divide-y divide-border/60 bg-card rounded-2xl border border-border overflow-hidden">
                     {suggestedCreators.map((p) => {
                       const isFollowed = followedIds.includes(p.uid)
@@ -199,6 +282,34 @@ export default function ExplorePage() {
                         </div>
                       )
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Trending Video */}
+              {trendingVideos.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Play className="h-4 w-4 text-primary fill-current" /> Trending Videos
+                  </h3>
+                  <div className="space-y-4">
+                    {trendingVideos.map((post) => (
+                      <PostCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Trending Post */}
+              {trendingPosts.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Compass className="h-4 w-4 text-primary" /> Trending Posts
+                  </h3>
+                  <div className="space-y-4">
+                    {trendingPosts.map((post) => (
+                      <PostCard key={post.id} post={post} />
+                    ))}
                   </div>
                 </div>
               )}
