@@ -112,12 +112,12 @@ export default function GetVerifiedPage() {
               <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
                 <div className="flex justify-between items-baseline">
                   <h3 className="flex items-center text-md font-bold text-foreground">
-                    <VerifiedBadge type="blue" /> <span className="ml-1">Premium Blue</span>
+                    <VerifiedBadge type="blue" /> <span className="ml-1">Premium (Standard)</span>
                   </h3>
                   <span className="text-xs text-muted-foreground">Standard</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-normal">
-                  Unlock the classic light blue verification checkmark badge adjacent to your profile name across all pages.
+                  Unlock the green verification checkmark badge adjacent to your profile name across all pages.
                 </p>
                 <Button
                   disabled={true}
@@ -131,12 +131,12 @@ export default function GetVerifiedPage() {
               <div className="p-5 rounded-2xl border border-border bg-card space-y-4">
                 <div className="flex justify-between items-baseline">
                   <h3 className="flex items-center text-md font-bold text-foreground">
-                    <VerifiedBadge type="gray" /> <span className="ml-1">Premium Gray</span>
+                    <VerifiedBadge type="gray" /> <span className="ml-1">Premium Blue+</span>
                   </h3>
-                  <span className="text-xs text-muted-foreground">Silver Premium</span>
+                  <span className="text-xs text-muted-foreground">Blue Premium</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-normal">
-                  Upgrade to the sleek grey checkmark badge style for a minimal aesthetic look.
+                  Upgrade to the blue checkmark badge style representing Premium Blue+ status.
                 </p>
                 <Button
                   disabled={true}

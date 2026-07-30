@@ -4,8 +4,8 @@ export function VerifiedBadge({ type }: { type?: "blue" | "gray" | "purple" | "g
   if (!type) return null
 
   let colorClass = "text-sky-400"
-  if (type === "blue") colorClass = "text-sky-400"
-  if (type === "gray") colorClass = "text-slate-400"
+  if (type === "blue") colorClass = "text-emerald-500" // Premium (Standard) Green Badge
+  if (type === "gray") colorClass = "text-sky-400" // Premium Blue+ Blue Badge
   if (type === "purple") colorClass = "text-purple-500"
   if (type === "gold") colorClass = "text-yellow-500"
   if (type === "gov") colorClass = "text-slate-500"

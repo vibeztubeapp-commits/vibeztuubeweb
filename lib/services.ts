@@ -53,6 +53,45 @@ export async function ensureProfile(user: FirebaseUser, overrides: Partial<Profi
 
 const userProfileCache: Record<string, ProfileData | null> = {}
 
+export const followedAuthorsCache = new Set<string>()
+export const likedAuthorsCache = new Set<string>()
+
+// Track auth change to load affinities
+auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+        followedAuthorsCache.clear()
+        likedAuthorsCache.clear()
+        return
+    }
+    
+    try {
+        // Load followed users
+        const followsRef = collection(db, "follows")
+        const qFollows = query(followsRef, where("followerUid", "==", user.uid))
+        const followsSnap = await getDocs(qFollows)
+        followsSnap.docs.forEach(d => {
+            const followed = d.data().followeeUid
+            if (followed) followedAuthorsCache.add(followed)
+        })
+        
+        // Load liked posts to determine creator affinity
+        const likesRef = collection(db, "profiles", user.uid, "likes")
+        const likesSnap = await getDocs(likesRef)
+        const likedPostIds = likesSnap.docs.map(d => d.id)
+        
+        // For creator affinity, resolve authors of liked posts
+        for (const pid of likedPostIds) {
+            const postSnap = await getDoc(doc(db, "posts", pid))
+            if (postSnap.exists()) {
+                const authorId = postSnap.data().authorId
+                if (authorId) likedAuthorsCache.add(authorId)
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load affinity caches", e)
+    }
+})
+
 export async function getUserProfile(uid: string): Promise<ProfileData | null> {
     if (uid in userProfileCache) {
         return userProfileCache[uid]
@@ -212,39 +251,70 @@ export async function followUser(targetUid: string) {
 }
 
 function rankPostsByXAlgorithm(posts: Post[]) {
+    const getMs = (t: any) => {
+        if (!t) return Date.now()
+        if (t.seconds) return t.seconds * 1000
+        if (t.toDate) return t.toDate().getTime()
+        return new Date(t).getTime()
+    }
+
+    const getBadgeWeight = (authorId: string) => {
+        const profile = userProfileCache[authorId]
+        if (!profile || !profile.verifiedBadge) return 0.20
+        const b = profile.verifiedBadge
+        if (b === "gold") return 0.99
+        if (b === "gov") return 0.99
+        if (b === "purple") return 0.60
+        if (b === "gray") return 0.50 // Premium Blue+ (Blue Badge style)
+        if (b === "blue") return 0.30 // Premium Standard (Green Badge style)
+        return 0.20
+    }
+
     return posts.sort((a, b) => {
         const aLikes = Number(a.likes || 0)
         const aReposts = Number(a.reposts || 0)
         const aComments = Number(a.comments || 0)
-        const aBookmarks = Number(a.bookmarks || 0)
-        const aViews = Number(a.views || 0)
 
         const bLikes = Number(b.likes || 0)
         const bReposts = Number(b.reposts || 0)
         const bComments = Number(b.comments || 0)
-        const bBookmarks = Number(b.bookmarks || 0)
-        const bViews = Number(b.views || 0)
 
-        // X-style weights: Reposts (15x), Comments (12x), Likes (10x), Bookmarks (8x), Views (0.5x)
-        const aScore = (aLikes * 10) + (aReposts * 15) + (aComments * 12) + (aBookmarks * 8) + (aViews * 0.5)
-        const bScore = (bLikes * 10) + (bReposts * 15) + (bComments * 12) + (bBookmarks * 8) + (bViews * 0.5)
+        // 1. Engagement Score: Likes (+1.0), Reposts (+2.0), Comments (+1.5)
+        const aEngagement = (aLikes * 1.0) + (aReposts * 2.0) + (aComments * 1.5)
+        const bEngagement = (bLikes * 1.0) + (bReposts * 2.0) + (bComments * 1.5)
 
-        // Time decay factor: decrease score by 1.5 units per hour since creation
-        const getMs = (t: any) => {
-            if (!t) return Date.now()
-            if (t.seconds) return t.seconds * 1000
-            if (t.toDate) return t.toDate().getTime()
-            return new Date(t).getTime()
-        }
+        // 2. Exponential Recency Decay: S_recency = e^(-0.15 * t)
         const aTime = getMs(a.createdAt)
         const bTime = getMs(b.createdAt)
         const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
         const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
 
-        // Gravity decay formula: Score / (AgeHours + 2)^1.8
-        // We add a base cold-start freshness boost of 150 points so new posts rank high initially
-        const aFinalScore = (aScore + 150) / Math.pow(aAgeHours + 2, 1.8)
-        const bFinalScore = (bScore + 150) / Math.pow(bAgeHours + 2, 1.8)
+        const aDecay = Math.exp(-0.15 * aAgeHours)
+        const bDecay = Math.exp(-0.15 * bAgeHours)
+
+        // 3. Follower Affinity (3.0x multiplier) & Creator Affinity (2.0x multiplier)
+        let aAffinity = 1.0
+        if (followedAuthorsCache.has(a.authorId)) aAffinity *= 3.0
+        if (likedAuthorsCache.has(a.authorId)) aAffinity *= 2.0
+
+        let bAffinity = 1.0
+        if (followedAuthorsCache.has(b.authorId)) bAffinity *= 3.0
+        if (likedAuthorsCache.has(b.authorId)) bAffinity *= 2.0
+
+        // 4. Badge Visibility Weights
+        const aBadgeWeight = getBadgeWeight(a.authorId)
+        const bBadgeWeight = getBadgeWeight(b.authorId)
+
+        // If author profile is not in local cache yet, trigger load in background to resolve on next render/snapshot
+        if (!userProfileCache[a.authorId]) {
+            void getUserProfile(a.authorId)
+        }
+        if (!userProfileCache[b.authorId]) {
+            void getUserProfile(b.authorId)
+        }
+
+        const aFinalScore = (aEngagement + 1) * aDecay * aAffinity * aBadgeWeight
+        const bFinalScore = (bEngagement + 1) * bDecay * bAffinity * bBadgeWeight
 
         return bFinalScore - aFinalScore
     })
