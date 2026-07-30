@@ -96,7 +96,116 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const saved = isBookmarked(displayPost.id)
   const { user } = useAuth()
   const uid = user?.uid
-  const { showNotice, showWarning } = usePopup()
+  const { showNotice, showWarning, showError } = usePopup()
+
+  // Optimistic UI state overrides
+  const [optLiked, setOptLiked] = useState<boolean | null>(null)
+  const [optLikesCount, setOptLikesCount] = useState<number | null>(null)
+  const [optReposted, setOptReposted] = useState<boolean | null>(null)
+  const [optRepostsCount, setOptRepostsCount] = useState<number | null>(null)
+  const [optSaved, setOptSaved] = useState<boolean | null>(null)
+  const [optBookmarksCount, setOptBookmarksCount] = useState<number | null>(null)
+
+  // Reset optimistic overrides when server state updates
+  useEffect(() => {
+    setOptLiked(null)
+    setOptLikesCount(null)
+  }, [liked])
+
+  useEffect(() => {
+    setOptReposted(null)
+    setOptRepostsCount(null)
+  }, [reposted])
+
+  useEffect(() => {
+    setOptSaved(null)
+    setOptBookmarksCount(null)
+  }, [saved])
+
+  const currentLiked = optLiked !== null ? optLiked : liked
+  const currentLikesCount = optLikesCount !== null ? optLikesCount : Number(displayPost.likes || 0)
+  const currentReposted = optReposted !== null ? optReposted : reposted
+  const currentRepostsCount = optRepostsCount !== null ? optRepostsCount : Number(displayPost.reposts || 0)
+  const currentSaved = optSaved !== null ? optSaved : saved
+  const currentBookmarksCount = optBookmarksCount !== null ? optBookmarksCount : Number(displayPost.bookmarks || 0)
+
+  const handleLike = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to like posts.")
+      return
+    }
+    const nextState = !currentLiked
+    setOptLiked(nextState)
+    setOptLikesCount(currentLikesCount + (nextState ? 1 : -1))
+    try {
+      await toggleLikePost(displayPost.id, currentLiked)
+    } catch (err: any) {
+      setOptLiked(null)
+      setOptLikesCount(null)
+      console.error("Like operation failed", {
+        operation: "toggleLikePost",
+        uid,
+        contentId: displayPost.id,
+        contentType: "post",
+        path: `posts/${displayPost.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Like Failed", "Couldn't update your Like. Please try again.")
+    }
+  }
+
+  const handleRepost = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to repost content.")
+      return
+    }
+    const nextState = !currentReposted
+    setOptReposted(nextState)
+    setOptRepostsCount(currentRepostsCount + (nextState ? 1 : -1))
+    try {
+      await toggleRepostPost(displayPost.id, currentReposted)
+    } catch (err: any) {
+      setOptReposted(null)
+      setOptRepostsCount(null)
+      console.error("Repost operation failed", {
+        operation: "toggleRepostPost",
+        uid,
+        contentId: displayPost.id,
+        contentType: "post",
+        path: `posts/${displayPost.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Repost Failed", "Couldn't update your Repost. Please try again.")
+    }
+  }
+
+  const handleBookmark = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to save bookmarks.")
+      return
+    }
+    const nextState = !currentSaved
+    setOptSaved(nextState)
+    setOptBookmarksCount(currentBookmarksCount + (nextState ? 1 : -1))
+    try {
+      await toggleBookmarkPost(displayPost.id, currentSaved)
+    } catch (err: any) {
+      setOptSaved(null)
+      setOptBookmarksCount(null)
+      console.error("Bookmark operation failed", {
+        operation: "toggleBookmarkPost",
+        uid,
+        contentId: displayPost.id,
+        contentType: "post",
+        path: `posts/${displayPost.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Bookmark Failed", "Couldn't update your Bookmark. Please try again.")
+    }
+  }
 
   useEffect(() => {
     if (!post.repostOf) return
@@ -315,23 +424,23 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
             <Action icon={MessageCircle} count={displayPost.comments} label="Reply" onClick={() => router.push(`/status/${displayPost.id}`)} />
             <Action
               icon={Repeat2}
-              count={displayPost.reposts}
+              count={currentRepostsCount}
               label="Repost"
-              active={reposted}
+              active={currentReposted}
               activeClass="text-emerald-500 animate-pulse"
-              onClick={() => void toggleRepostPost(displayPost.id, reposted)}
+              onClick={() => void handleRepost()}
             />
             <Action
               icon={Heart}
-              count={displayPost.likes}
+              count={currentLikesCount}
               label="Like"
-              active={liked}
+              active={currentLiked}
               activeClass="text-red-500 animate-pulse"
-              onClick={() => void toggleLikePost(displayPost.id, liked)}
+              onClick={() => void handleLike()}
             />
             <Action icon={Eye} count={displayPost.views} label="Views" />
             <div className="flex items-center">
-              <Action icon={Bookmark} count={displayPost.bookmarks} label="Save" active={saved} activeClass="text-purple-500 animate-pulse" onClick={() => void toggleBookmarkPost(displayPost.id, saved)} />
+              <Action icon={Bookmark} count={currentBookmarksCount} label="Save" active={currentSaved} activeClass="text-purple-500 animate-pulse" onClick={() => void handleBookmark()} />
               <Action
                 icon={Share}
                 label="Share"

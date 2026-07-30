@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { db, getUserProfile, createComment, toggleLikeComment, toggleRepostComment, toggleLikePost, toggleRepostPost, incrementPostViews, toggleBookmarkPost, toggleBookmarkComment, incrementCommentViews } from "@/lib/services"
 import { doc, onSnapshot, collection, query, orderBy, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
 import { useEngagement } from "@/components/engagement-provider"
+import { usePopup } from "@/components/popup-provider"
 import { ArrowLeft, MessageCircle, Repeat2, Heart, Share, Bookmark, Send, Loader2, ArrowUp, CornerDownRight, Eye, MapPin, Smile, Image as ImageIcon, Play, Pause } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -44,6 +45,7 @@ function CommentCardItem({
   const [myProfile, setMyProfile] = useState<any>(null)
   const router = useRouter()
   const uid = user?.uid
+  const { showNotice, showError } = usePopup()
 
   useEffect(() => {
     if (!uid) return
@@ -80,26 +82,65 @@ function CommentCardItem({
   }, [postId, comment.id])
 
   const onLike = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to like comments.")
+      return
+    }
     try {
       await toggleLikeComment(postId, comment.id, liked)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      console.error("Comment Like operation failed", {
+        operation: "toggleLikeComment",
+        uid,
+        contentId: comment.id,
+        contentType: "comment",
+        path: `posts/${postId}/comments/${comment.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Like Failed", "Couldn't update your Like. Please try again.")
     }
   }
 
   const onRepost = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to repost comments.")
+      return
+    }
     try {
       await toggleRepostComment(postId, comment.id, reposted)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      console.error("Comment Repost operation failed", {
+        operation: "toggleRepostComment",
+        uid,
+        contentId: comment.id,
+        contentType: "comment",
+        path: `posts/${postId}/comments/${comment.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Repost Failed", "Couldn't update your Repost. Please try again.")
     }
   }
 
   const onBookmark = async () => {
+    if (!uid) {
+      showNotice("Authentication Required", "Please sign in to save bookmarks.")
+      return
+    }
     try {
       await toggleBookmarkComment(postId, comment.id, saved)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      console.error("Comment Bookmark operation failed", {
+        operation: "toggleBookmarkComment",
+        uid,
+        contentId: comment.id,
+        contentType: "comment",
+        path: `posts/${postId}/comments/${comment.id}`,
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Bookmark Failed", "Couldn't update your Bookmark. Please try again.")
     }
   }
 

@@ -81,8 +81,8 @@ service cloud.firestore {
 
     // Notifications: owner-owned read/update, authenticated creation
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && (resource.data.recipientId == request.auth.uid || resource.data.uid == request.auth.uid);
-      allow create: if request.auth != null && (request.resource.data.recipientId != null || request.resource.data.uid != null);
+      allow read, update: if request.auth != null && (resource.data.get('recipientId', null) == request.auth.uid || resource.data.get('uid', null) == request.auth.uid);
+      allow create: if request.auth != null && (request.resource.data.get('recipientId', null) != null || request.resource.data.get('uid', null) != null);
     }
 
     // Conversations: members-only access

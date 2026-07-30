@@ -11,6 +11,7 @@ import { VerifiedBadge } from "@/components/verified-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { usePopup } from "@/components/popup-provider"
 
 type ShortVideoPost = {
   id: string
@@ -222,6 +223,7 @@ function ShortPlayerCard({ post, user, onOpenComments }: { post: ShortVideoPost;
   const [liked, setLiked] = useState(false)
   const [reposted, setReposted] = useState(false)
   const [following, setFollowing] = useState(false)
+  const { showNotice, showError } = usePopup()
 
   // IntersectionObserver to auto play/pause active video
   useEffect(() => {
@@ -272,18 +274,42 @@ function ShortPlayerCard({ post, user, onOpenComments }: { post: ShortVideoPost;
   }
 
   const handleLike = async () => {
+    if (!user?.uid) {
+      showNotice("Authentication Required", "Please sign in to like shorts.")
+      return
+    }
     try {
       await toggleLikePost(post.id, liked)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      console.error("Short Like operation failed", {
+        operation: "toggleLikePost",
+        uid: user.uid,
+        contentId: post.id,
+        contentType: "short",
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Like Failed", "Couldn't update your Like. Please try again.")
     }
   }
 
   const handleRepost = async () => {
+    if (!user?.uid) {
+      showNotice("Authentication Required", "Please sign in to repost shorts.")
+      return
+    }
     try {
       await toggleRepostPost(post.id, reposted)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      console.error("Short Repost operation failed", {
+        operation: "toggleRepostPost",
+        uid: user.uid,
+        contentId: post.id,
+        contentType: "short",
+        errorCode: err.code || "unknown",
+        errorMessage: err.message || String(err)
+      })
+      showError("Repost Failed", "Couldn't update your Repost. Please try again.")
     }
   }
 
