@@ -7,7 +7,7 @@ const path = require("path")
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: "postgresql://vibeztube_user:vibeztube_secure_pwd_998@localhost:5432/vibeztube_db?schema=public",
+      url: process.env.DATABASE_URL || "postgresql://vibeztube_user:vibeztube_secure_pwd_998@localhost:5432/vibeztube_db?schema=public",
     },
   },
 })
