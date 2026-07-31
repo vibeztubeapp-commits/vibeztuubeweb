@@ -25,7 +25,8 @@ admin.initializeApp({
   credential: cert(serviceAccount),
 })
 
-const db = admin.firestore()
+const { getFirestore } = require("firebase-admin/firestore")
+const db = getFirestore()
 
 async function main() {
   console.log("Starting database migration from Firestore to PostgreSQL...")
