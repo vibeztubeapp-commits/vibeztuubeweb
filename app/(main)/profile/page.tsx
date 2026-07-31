@@ -108,14 +108,21 @@ function ProfileView() {
 
   const handleFollowToggle = async () => {
     if (!user || !targetUid) return
+    const originalFollowingState = following
+    const nextFollowingState = !following
+    setFollowing(nextFollowingState)
+    setFollowersCount((prev) => Math.max(0, prev + (nextFollowingState ? 1 : -1)))
     try {
-      if (following) {
+      if (originalFollowingState) {
         await unfollowUser(targetUid)
       } else {
         await followUser(targetUid)
       }
     } catch (err) {
       console.error(err)
+      // Revert state on failure
+      setFollowing(originalFollowingState)
+      setFollowersCount((prev) => Math.max(0, prev + (originalFollowingState ? 1 : -1)))
     }
   }
 
