@@ -475,12 +475,11 @@ export default function StatusPage() {
 
   useEffect(() => {
     if (!user?.uid) return
-    const profileRef = doc(db, "profiles", user.uid)
-    return onSnapshot(profileRef, (snap) => {
-      if (snap.exists()) {
-        setCurrentUserProfile({ uid: snap.id, ...snap.data() })
-      }
-    })
+    getUserProfile(user.uid)
+      .then((profile) => {
+        if (profile) setCurrentUserProfile(profile)
+      })
+      .catch((err) => console.error("Error loading user profile on status page:", err))
   }, [user])
 
   // Real-time parent post listener and view increment
@@ -488,49 +487,51 @@ export default function StatusPage() {
     if (!postId) return
     void incrementPostViews(postId)
 
-    const postRef = doc(db, "posts", postId)
-    const unsub = onSnapshot(postRef, async (snap) => {
-      if (snap.exists()) {
-        const data = snap.data()
-        setPost({ id: snap.id, ...data })
-        if (data.authorId) {
-          const profile = await getUserProfile(data.authorId)
-          setPostAuthor(profile)
-        }
-      } else {
-        setPost(null)
-      }
-      setLoading(false)
-    })
-    return unsub
+    const fetchPost = () => {
+      fetch(`/api/posts/${postId}`)
+        .then((res) => res.json())
+        .then(async (data) => {
+          if (data && !data.error) {
+            setPost(data)
+            if (data.authorId) {
+              const profile = await getUserProfile(data.authorId)
+              setPostAuthor(profile)
+            }
+          } else {
+            setPost(null)
+          }
+          setLoading(false)
+        })
+        .catch((err) => {
+          console.error("fetchPost error:", err)
+          setPost(null)
+          setLoading(false)
+        })
+    }
+
+    fetchPost()
+    const interval = setInterval(fetchPost, 10000)
+    return () => clearInterval(interval)
   }, [postId])
 
   // Real-time comments list listener
   useEffect(() => {
     if (!postId) return
-    const commentsRef = collection(db, "posts", postId, "comments")
-    const q = query(commentsRef, orderBy("createdAt", "asc"))
-    
-    const unsub = onSnapshot(q, async (snap) => {
-      const items: any[] = []
-      for (const d of snap.docs) {
-        const data = d.data()
-        const authorProfile = await getUserProfile(data.authorId)
-        items.push({
-          id: d.id,
-          ...data,
-          likes: Number(data.likes || 0),
-          comments: Number(data.comments || 0),
-          reposts: Number(data.reposts || 0),
-          bookmarks: Number(data.bookmarks || 0),
-          views: Number(data.views || 0),
-          shares: Number(data.shares || 0),
-          authorProfile,
+
+    const fetchComments = () => {
+      fetch(`/api/posts/${postId}/comments`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setComments(data)
+          }
         })
-      }
-      setComments(items)
-    })
-    return unsub
+        .catch((err) => console.error("fetchComments error:", err))
+    }
+
+    fetchComments()
+    const interval = setInterval(fetchComments, 10000)
+    return () => clearInterval(interval)
   }, [postId])
 
   const handlePostReply = async (parentCommentId: string | null = null, textValue: string, isInline = false) => {
