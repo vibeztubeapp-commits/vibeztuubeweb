@@ -90,7 +90,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const [showMenu, setShowMenu] = useState(false)
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
 
-  const { isLiked, isReposted, isBookmarked } = useEngagement()
+  const { isLiked, isReposted, isBookmarked, toggleLikeLocal, toggleRepostLocal, toggleBookmarkLocal } = useEngagement()
   const displayPost = originalPost || post
   const liked = isLiked(displayPost.id)
   const reposted = isReposted(displayPost.id)
@@ -140,6 +140,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     setOptLikesCount(currentLikesCount + (nextState ? 1 : -1))
     try {
       await toggleLikePost(displayPost.id, currentLiked)
+      toggleLikeLocal(displayPost.id)
     } catch (err: any) {
       setOptLiked(null)
       setOptLikesCount(null)
@@ -166,6 +167,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     setOptRepostsCount(currentRepostsCount + (nextState ? 1 : -1))
     try {
       await toggleRepostPost(displayPost.id, currentReposted)
+      toggleRepostLocal(displayPost.id)
     } catch (err: any) {
       setOptReposted(null)
       setOptRepostsCount(null)
@@ -192,6 +194,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     setOptBookmarksCount(currentBookmarksCount + (nextState ? 1 : -1))
     try {
       await toggleBookmarkPost(displayPost.id, currentSaved)
+      toggleBookmarkLocal(displayPost.id)
     } catch (err: any) {
       setOptSaved(null)
       setOptBookmarksCount(null)
@@ -212,42 +215,24 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
     if (!post.repostOf) return
     void getUserProfile(post.authorId).then((profile) => setReposterProfile(profile))
     
-    let unsubNext: (() => void) | null = null
     const loadOriginal = (targetId: string) => {
-      const docRef = doc(db, "posts", targetId)
-      const unsub = onSnapshot(docRef, async (snap) => {
-        if (snap.exists()) {
-          const data = snap.data()
-          if (data.repostOf) {
-            if (unsubNext) unsubNext()
-            loadOriginal(data.repostOf)
-          } else {
-            const p = {
-              id: snap.id,
-              authorId: data.authorId || "guest",
-              timeAgo: data.timeAgo || "just now",
-              createdAt: data.createdAt,
-              text: data.text || "",
-              media: data.media || [],
-              likes: Number(data.likes || 0),
-              comments: Number(data.comments || 0),
-              reposts: Number(data.reposts || 0),
-              bookmarks: Number(data.bookmarks || 0),
-              shares: Number(data.shares || 0),
-              views: String(data.views || "0"),
+      fetch(`/api/posts/${targetId}`)
+        .then((res) => res.json())
+        .then(async (data) => {
+          if (data && !data.error) {
+            if (data.repostOf) {
+              loadOriginal(data.repostOf)
+            } else {
+              setOriginalPost(data)
+              const profile = await getUserProfile(data.authorId)
+              setOriginalAuthor(profile)
             }
-            setOriginalPost(p as any)
-            const profile = await getUserProfile(data.authorId)
-            setOriginalAuthor(profile)
           }
-        }
-      })
-      unsubNext = unsub
+        })
+        .catch((err) => console.error("Error loading original post:", err))
     }
     loadOriginal(post.repostOf)
-    return () => {
-      if (unsubNext) unsubNext()
-    }
+    return () => {}
   }, [post.repostOf, post.authorId])
 
   const displayAuthor = originalPost ? (originalAuthor || getUser(originalPost.authorId)) : (author || getUser(post.authorId))

@@ -2,8 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useAuth } from "./auth-provider"
-import { db } from "@/lib/services"
-import { collection, collectionGroup, onSnapshot, query, where } from "firebase/firestore"
 
 type EngagementContextValue = {
   likedIds: Set<string>
@@ -12,6 +10,9 @@ type EngagementContextValue = {
   isLiked: (postId: string) => boolean
   isReposted: (postId: string) => boolean
   isBookmarked: (postId: string) => boolean
+  toggleLikeLocal: (postId: string) => void
+  toggleRepostLocal: (postId: string) => void
+  toggleBookmarkLocal: (postId: string) => void
 }
 
 const EngagementContext = createContext<EngagementContextValue | undefined>(undefined)
@@ -30,47 +31,46 @@ export function EngagementProvider({ children }: { children: React.ReactNode }) 
       return
     }
 
-    // 1. Single listener for all likes (Simple subcollection, no composite index needed)
-    const unsubLikes = onSnapshot(collection(db, "profiles", user.uid, "likes"), (snap) => {
-      const ids = new Set<string>()
-      snap.docs.forEach((docSnap) => {
-        ids.add(docSnap.id)
+    fetch(`/api/users/${user.uid}/engagements`)
+      .then((res) => res.json())
+      .then((data) => {
+        setLikedIds(new Set(data.likedIds || []))
+        setRepostedIds(new Set(data.repostedIds || []))
+        setBookmarkedIds(new Set(data.bookmarkedIds || []))
       })
-      setLikedIds(ids)
-    }, (err) => console.error("Error listening to user likes:", err))
-
-    // 2. Single listener for all reposts (Simple subcollection, no composite index needed)
-    const unsubReposts = onSnapshot(collection(db, "profiles", user.uid, "reposts"), (snap) => {
-      const ids = new Set<string>()
-      snap.docs.forEach((docSnap) => {
-        ids.add(docSnap.id)
-      })
-      setRepostedIds(ids)
-    }, (err) => console.error("Error listening to user reposts:", err))
-
-    // 3. Single listener for all bookmarks
-    const qBookmarks = query(collection(db, "bookmarks"), where("uid", "==", user.uid))
-    const unsubBookmarks = onSnapshot(qBookmarks, (snap) => {
-      const ids = new Set<string>()
-      snap.docs.forEach((docSnap) => {
-        const data = docSnap.data()
-        if (data.postId) {
-          ids.add(data.postId)
-        }
-      })
-      setBookmarkedIds(ids)
-    }, (err) => console.error("Error listening to user bookmarks:", err))
-
-    return () => {
-      unsubLikes()
-      unsubReposts()
-      unsubBookmarks()
-    }
+      .catch((err) => console.error("Error fetching user engagements:", err))
   }, [user?.uid])
 
   const isLiked = (postId: string) => likedIds.has(postId)
   const isReposted = (postId: string) => repostedIds.has(postId)
   const isBookmarked = (postId: string) => bookmarkedIds.has(postId)
+
+  const toggleLikeLocal = (postId: string) => {
+    setLikedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(postId)) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+  }
+
+  const toggleRepostLocal = (postId: string) => {
+    setRepostedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(postId)) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+  }
+
+  const toggleBookmarkLocal = (postId: string) => {
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(postId)) next.delete(postId)
+      else next.add(postId)
+      return next
+    })
+  }
 
   return (
     <EngagementContext.Provider
@@ -81,6 +81,9 @@ export function EngagementProvider({ children }: { children: React.ReactNode }) 
         isLiked,
         isReposted,
         isBookmarked,
+        toggleLikeLocal,
+        toggleRepostLocal,
+        toggleBookmarkLocal,
       }}
     >
       {children}
