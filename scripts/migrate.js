@@ -20,8 +20,9 @@ if (!fs.existsSync(serviceAccountPath)) {
 }
 
 const serviceAccount = require(serviceAccountPath)
+const credential = admin.credential || require("firebase-admin").credential || (admin.default && admin.default.credential)
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: credential.cert(serviceAccount),
 })
 
 const db = admin.firestore()
