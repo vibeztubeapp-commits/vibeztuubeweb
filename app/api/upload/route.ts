@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3"
 
 const s3Client = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT || "http://localhost:9000",
@@ -10,6 +10,19 @@ const s3Client = new S3Client({
   },
   forcePathStyle: true, // Required for MinIO
 })
+
+async function ensureBucketExists(bucketName: string) {
+  try {
+    await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }))
+  } catch (err: any) {
+    if (err.name === "NotFound" || err.$metadata?.httpStatusCode === 404) {
+      await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }))
+      console.log(`Created MinIO bucket: ${bucketName}`)
+    } else {
+      throw err;
+    }
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,6 +37,9 @@ export async function POST(req: Request) {
     const fileKey = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`
 
     const bucketName = process.env.MINIO_BUCKET || "vibeztube-bucket"
+
+    // Ensure bucket is initialized
+    await ensureBucketExists(bucketName)
 
     await s3Client.send(
       new PutObjectCommand({
