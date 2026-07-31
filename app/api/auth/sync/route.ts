@@ -16,12 +16,14 @@ export async function POST(req: Request) {
       update: {
         displayName: displayName || undefined,
         avatarUrl: avatarUrl || undefined,
+        email: email || undefined,
       },
       create: {
         id: uid,
         username: username || `user_${Math.random().toString(36).substr(2, 9)}`,
         displayName: displayName || "Creator",
         avatarUrl: avatarUrl || "",
+        email: email || "",
         bio: "",
         verifiedBadge: "",
       },

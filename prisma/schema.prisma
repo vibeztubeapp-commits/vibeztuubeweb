@@ -12,6 +12,7 @@ model User {
   id             String         @id // Firebase Auth UID
   username       String         @unique
   displayName    String?
+  email          String?
   bio            String?
   avatarUrl      String?
   verifiedBadge  String?        // "gray" -> Premium Blue+, "blue" -> Premium Standard, etc.

@@ -216,7 +216,7 @@ export async function getEmailByUsername(username: string) {
     const response = await fetch(`/api/users/${username}?type=username`)
     if (!response.ok) return null
     const data = await response.json()
-    return `${username}@vibeztube.com`
+    return data.email || null
 }
 
 export async function unfollowUser(targetUid: string) {

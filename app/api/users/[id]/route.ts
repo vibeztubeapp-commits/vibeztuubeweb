@@ -29,6 +29,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       displayName: profile.displayName,
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
+      email: profile.email,
       verifiedBadge: profile.verifiedBadge,
       followersCount: profile.followersCount,
       followingCount: profile.followingCount,
