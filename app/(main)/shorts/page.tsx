@@ -34,6 +34,20 @@ export default function ShortsPage() {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState("")
   const [postingComment, setPostingComment] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleVideoEnded = (index: number) => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+    const childHeight = container.clientHeight
+    const nextScrollTop = (index + 1) * childHeight
+    if (nextScrollTop < container.scrollHeight) {
+      container.scrollTo({
+        top: nextScrollTop,
+        behavior: "smooth"
+      })
+    }
+  }
 
   // Load all posts containing video from firestore
   useEffect(() => {
@@ -127,7 +141,7 @@ export default function ShortsPage() {
 
   return (
     <AuthGuard>
-      <div className="relative flex h-[calc(100dvh-120px)] md:h-[calc(100vh-65px)] w-full items-center justify-center bg-black overflow-hidden select-none py-1 md:py-4">
+      <div className="relative flex h-[calc(100dvh-64px)] md:h-[calc(100dvh)] w-full items-center justify-center bg-black overflow-hidden select-none">
         
         {loading ? (
           <div className="text-white text-xs flex flex-col items-center gap-2">
@@ -135,16 +149,18 @@ export default function ShortsPage() {
             Loading Shorts Feed...
           </div>
         ) : posts.length > 0 ? (
-          <div className="h-full w-full max-w-[450px] md:max-w-[420px] md:max-h-[700px] overflow-y-scroll snap-y snap-mandatory scroll-smooth divide-y divide-zinc-900 scrollbar-none">
-            {posts.map((post) => (
+          <div ref={containerRef} className="h-full w-full max-w-none md:max-w-[420px] md:max-h-[700px] overflow-y-scroll snap-y snap-mandatory scroll-smooth divide-y divide-zinc-900 scrollbar-none">
+            {posts.map((post, idx) => (
               <ShortPlayerCard
                 key={post.id}
                 post={post}
                 user={user}
+                index={idx}
                 onOpenComments={(id) => {
                   setActivePostId(id)
                   setCommentDrawerOpen(true)
                 }}
+                onVideoEnded={handleVideoEnded}
               />
             ))}
           </div>
@@ -217,7 +233,19 @@ export default function ShortsPage() {
   )
 }
 
-function ShortPlayerCard({ post, user, onOpenComments }: { post: ShortVideoPost; user: any; onOpenComments: (id: string) => void }) {
+function ShortPlayerCard({ 
+  post, 
+  user, 
+  index, 
+  onOpenComments, 
+  onVideoEnded 
+}: { 
+  post: ShortVideoPost; 
+  user: any; 
+  index: number; 
+  onOpenComments: (id: string) => void; 
+  onVideoEnded: (index: number) => void; 
+}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [liked, setLiked] = useState(false)
@@ -339,9 +367,9 @@ function ShortPlayerCard({ post, user, onOpenComments }: { post: ShortVideoPost;
         ref={videoRef}
         src={videoSrc}
         onClick={togglePlay}
-        loop
+        onEnded={() => onVideoEnded(index)}
         playsInline
-        className="absolute inset-0 h-full w-full object-contain cursor-pointer"
+        className="absolute inset-0 h-full w-full object-cover cursor-pointer"
       />
 
       {/* Play/Pause overlay indicator */}

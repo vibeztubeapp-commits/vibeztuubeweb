@@ -16,7 +16,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     <div className="mx-auto flex min-h-svh w-full max-w-[1400px]">
       <LeftRail />
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileHeader />
+        {pathname !== "/shorts" && <MobileHeader />}
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
       </div>
       <BottomNav />
