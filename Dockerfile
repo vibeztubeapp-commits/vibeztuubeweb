@@ -1,6 +1,6 @@
 # Stage 1: Install dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
@@ -17,6 +17,7 @@ RUN npm run build
 # Stage 3: Production runner
 FROM node:20-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
