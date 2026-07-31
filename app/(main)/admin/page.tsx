@@ -19,36 +19,42 @@ export default function GetVerifiedPage() {
 
   useEffect(() => {
     if (!user) return
-    const unsub = onSnapshot(doc(db, "profiles", user.uid), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data()
-        setProfile(data)
 
-        // Check if there is an active review
-        if (data.underReview && data.reviewStartedAt) {
-          const started = data.reviewStartedAt.toDate ? data.reviewStartedAt.toDate().getTime() : new Date(data.reviewStartedAt).getTime()
-          const now = Date.now()
-          const elapsed = now - started
-          const remaining = Math.max(0, 60000 - elapsed)
+    const loadProfile = () => {
+      getUserProfile(user.uid)
+        .then((data) => {
+          if (!data) return
+          setProfile(data)
 
-          if (remaining > 0) {
-            setStatusMessage(`Your verification request for "${data.reviewBadge}" badge is under review. Please wait...`)
-            setLoadingBadge(data.reviewBadge)
+          // Check if there is an active review
+          if (data.underReview && data.reviewStartedAt) {
+            const started = new Date(data.reviewStartedAt).getTime()
+            const now = Date.now()
+            const elapsed = now - started
+            const remaining = Math.max(0, 60000 - elapsed)
 
-            const timer = setTimeout(() => {
+            if (remaining > 0) {
+              setStatusMessage(`Your verification request for "${data.reviewBadge}" badge is under review. Please wait...`)
+              setLoadingBadge(data.reviewBadge)
+
+              const timer = setTimeout(() => {
+                void approveVerification(data.reviewBadge)
+              }, remaining)
+              return () => clearTimeout(timer)
+            } else {
               void approveVerification(data.reviewBadge)
-            }, remaining)
-            return () => clearTimeout(timer)
+            }
           } else {
-            void approveVerification(data.reviewBadge)
+            setLoadingBadge(null)
+            setStatusMessage("")
           }
-        } else {
-          setLoadingBadge(null)
-          setStatusMessage("")
-        }
-      }
-    })
-    return () => unsub()
+        })
+        .catch((err) => console.error(err))
+    }
+
+    loadProfile()
+    const interval = setInterval(loadProfile, 10000)
+    return () => clearInterval(interval)
   }, [user])
 
   const approveVerification = async (badgeType: string) => {

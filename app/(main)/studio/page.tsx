@@ -30,54 +30,55 @@ export default function VCreatorStudioPage() {
   useEffect(() => {
     if (!user) return
 
-    // Real-time listener for user profile (provides followersCount, verified, dob, location etc)
-    const unsubProfile = onSnapshot(doc(db, "profiles", user.uid), (profileSnap) => {
-      if (profileSnap.exists()) {
-        setProfile(profileSnap.data())
+    const loadStudioData = async () => {
+      try {
+        const profileData = await getUserProfile(user.uid)
+        if (profileData) setProfile(profileData)
+
+        // Fetch user engagements count from engagements API
+        const engagementsRes = await fetch(`/api/users/${user.uid}/engagements`)
+        const engagementsData = await engagementsRes.json()
+        const bookmarksCount = (engagementsData.bookmarkedIds || []).length
+
+        // Fetch posts from API
+        const postsRes = await fetch(`/api/posts?limit=1000`)
+        const allPosts = await postsRes.json()
+        const myPosts = Array.isArray(allPosts) ? allPosts.filter((p: any) => p.authorId === user.uid) : []
+
+        let totalLikes = 0
+        let totalComments = 0
+        let totalReposts = 0
+        let totalViews = 0
+
+        myPosts.forEach((p: any) => {
+          totalLikes += Number(p.likes || p.likesCount || 0)
+          totalComments += Number(p.comments || p.commentsCount || 0)
+          totalReposts += Number(p.reposts || p.repostsCount || 0)
+          totalViews += Number(p.views || p.viewsCount || 0)
+        })
+
+        const totalPostsCount = myPosts.length
+        const engagementRateValue = totalPostsCount > 0 
+          ? Number(((totalLikes + totalComments + totalReposts) / (totalViews || 1) * 100).toFixed(1))
+          : 0
+
+        setStats({
+          totalPosts: totalPostsCount,
+          engagementRate: engagementRateValue,
+          likesReceived: totalLikes,
+          bookmarks: bookmarksCount,
+          reposts: totalReposts,
+          views: totalViews,
+          watchHours: Math.round(totalViews * 0.08 * 10) / 10,
+        })
+      } catch (err) {
+        console.error("Error loading studio data:", err)
       }
-    })
-
-    // Real-time listener for user's posts to aggregate likes, reposts, comments, views
-    const qPosts = query(collection(db, "posts"), where("authorId", "==", user.uid))
-    const unsubPosts = onSnapshot(qPosts, async (snapPosts) => {
-      let totalLikes = 0
-      let totalComments = 0
-      let totalReposts = 0
-      let totalViews = 0
-
-      snapPosts.docs.forEach((doc) => {
-        const d = doc.data()
-        totalLikes += Number(d.likes || 0)
-        totalComments += Number(d.comments || 0)
-        totalReposts += Number(d.reposts || 0)
-        totalViews += Number(d.views || 0)
-      })
-
-      // Query bookmarks count in real-time
-      const qBookmarks = query(collection(db, "bookmarks"), where("uid", "==", user.uid))
-      const snapBookmarks = await getDocs(qBookmarks)
-      const bookmarksCount = snapBookmarks.docs.length
-
-      const totalPostsCount = snapPosts.docs.length
-      const engagementRateValue = totalPostsCount > 0 
-        ? Number(((totalLikes + totalComments + totalReposts) / (totalViews || 1) * 100).toFixed(1))
-        : 0
-
-      setStats({
-        totalPosts: totalPostsCount,
-        engagementRate: engagementRateValue,
-        likesReceived: totalLikes,
-        bookmarks: bookmarksCount,
-        reposts: totalReposts,
-        views: totalViews,
-        watchHours: Math.round(totalViews * 0.08 * 10) / 10,
-      })
-    })
-
-    return () => {
-      unsubProfile()
-      unsubPosts()
     }
+
+    loadStudioData()
+    const interval = setInterval(loadStudioData, 15000)
+    return () => clearInterval(interval)
   }, [user])
 
   // Chart coordinate mapping

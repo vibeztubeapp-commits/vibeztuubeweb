@@ -49,31 +49,19 @@ function CommentCardItem({
 
   useEffect(() => {
     if (!uid) return
-    const myProfileRef = doc(db, "profiles", uid)
-    return onSnapshot(myProfileRef, (snap) => {
-      if (snap.exists()) {
-        setMyProfile({ uid: snap.id, ...snap.data() })
-      }
-    })
+    getUserProfile(uid)
+      .then((profile) => {
+        if (profile) setMyProfile(profile)
+      })
+      .catch((err) => console.error(err))
   }, [uid])
 
+  // Initialize state from model properties if available
   useEffect(() => {
-    if (!uid) return
-    const likeRef = doc(db, "posts", postId, "comments", comment.id, "likes", uid)
-    return onSnapshot(likeRef, (snap) => setLiked(snap.exists()))
-  }, [postId, comment.id, uid])
-
-  useEffect(() => {
-    if (!uid) return
-    const repostRef = doc(db, "posts", postId, "comments", comment.id, "reposts", uid)
-    return onSnapshot(repostRef, (snap) => setReposted(snap.exists()))
-  }, [postId, comment.id, uid])
-
-  useEffect(() => {
-    if (!uid) return
-    const bookmarkRef = doc(db, "bookmarks", `${uid}_${comment.id}`)
-    return onSnapshot(bookmarkRef, (snap) => setSaved(snap.exists()))
-  }, [comment.id, uid])
+    if (comment) {
+      // In the future, comment objects returned by the API can include liked/reposted/saved flags if requested
+    }
+  }, [comment])
 
   useEffect(() => {
     if (postId && comment.id) {
@@ -86,9 +74,12 @@ function CommentCardItem({
       showNotice("Authentication Required", "Please sign in to like comments.")
       return
     }
+    const nextState = !liked
+    setLiked(nextState)
     try {
       await toggleLikeComment(postId, comment.id, liked)
     } catch (err: any) {
+      setLiked(!nextState)
       console.error("Comment Like operation failed", {
         operation: "toggleLikeComment",
         uid,
@@ -107,9 +98,12 @@ function CommentCardItem({
       showNotice("Authentication Required", "Please sign in to repost comments.")
       return
     }
+    const nextState = !reposted
+    setReposted(nextState)
     try {
       await toggleRepostComment(postId, comment.id, reposted)
     } catch (err: any) {
+      setReposted(!nextState)
       console.error("Comment Repost operation failed", {
         operation: "toggleRepostComment",
         uid,
@@ -128,9 +122,12 @@ function CommentCardItem({
       showNotice("Authentication Required", "Please sign in to save bookmarks.")
       return
     }
+    const nextState = !saved
+    setSaved(nextState)
     try {
       await toggleBookmarkComment(postId, comment.id, saved)
     } catch (err: any) {
+      setSaved(!nextState)
       console.error("Comment Bookmark operation failed", {
         operation: "toggleBookmarkComment",
         uid,

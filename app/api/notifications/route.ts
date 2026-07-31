@@ -48,7 +48,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { notificationId, action } = body
+    const { notificationId, action, recipientId } = body
+
+    if (action === "readAll" && recipientId) {
+      await prisma.notification.updateMany({
+        where: { recipientId, read: false },
+        data: { read: true },
+      })
+      return NextResponse.json({ success: true })
+    }
 
     if (!notificationId) {
       return NextResponse.json({ error: "Missing notificationId" }, { status: 400 })

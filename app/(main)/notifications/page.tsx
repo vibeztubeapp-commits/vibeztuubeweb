@@ -34,68 +34,36 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!user) return
 
-    // Set up real-time listener for incoming notifications targeted at the current user
-    const q = query(
-      collection(db, "notifications"),
-      where("recipientId", "==", user.uid)
-    )
-
-    const unsub = onSnapshot(q, async (snap) => {
-      const items: NotificationItem[] = []
-      
-      for (const changeDoc of snap.docs) {
-        const data = changeDoc.data()
-        const senderProfile = await getUserProfile(data.senderId || "guest")
-        
-        let postSnippet = ""
-        if (data.postId) {
-          try {
-            const postRef = doc(db, "posts", data.postId)
-            const postSnap = await getDoc(postRef)
-            if (postSnap.exists()) {
-              postSnippet = postSnap.data().text || "[Media]"
-            }
-          } catch (e) {
-            console.error("Error fetching post snippet for notification", e)
+    const loadNotifications = () => {
+      fetch(`/api/notifications?recipientId=${user.uid}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setNotifications(data)
           }
-        }
-
-        items.push({
-          id: changeDoc.id,
-          recipientId: data.recipientId,
-          senderId: data.senderId,
-          type: data.type,
-          postId: data.postId,
-          text: data.text,
-          read: Boolean(data.read),
-          createdAt: data.createdAt,
-          senderProfile,
-          postSnippet,
         })
-      }
+        .catch((err) => console.error("Error loading notifications:", err))
+    }
 
-      // Sort client-side to bypass composite index requirement
-      items.sort((a, b) => {
-        const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()
-        const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()
-        return timeB - timeA
-      })
-
-      setNotifications(items)
-    })
-
-    return () => unsub()
+    loadNotifications()
+    const interval = setInterval(loadNotifications, 10000)
+    return () => clearInterval(interval)
   }, [user])
 
   const markAllAsRead = async () => {
     if (!user || notifications.length === 0) return
-    const batch = writeBatch(db)
-    notifications.forEach((n) => {
-      if (!n.read) {
-        batch.update(doc(db, "notifications", n.id), { read: true })
-      }
-    })
-    await batch.commit()
+    try {
+      // Optimistically mark all local items as read
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      
+      await fetch(`/api/notifications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "readAll", recipientId: user.uid }),
+      })
+    } catch (err) {
+      console.error("Failed to mark notifications as read", err)
+    }
   }
 
   const filteredNotifications = notifications.filter((n) => {
