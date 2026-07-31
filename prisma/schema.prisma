@@ -1,0 +1,141 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String         @id // Firebase Auth UID
+  username       String         @unique
+  displayName    String?
+  bio            String?
+  avatarUrl      String?
+  verifiedBadge  String?        // "gray" -> Premium Blue+, "blue" -> Premium Standard, etc.
+  followersCount Int            @default(0)
+  followingCount Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  posts          Post[]
+  comments       Comment[]
+  notifications  Notification[] @relation("RecipientNotifications")
+  sentAlerts     Notification[] @relation("SenderNotifications")
+  likes          Like[]
+  reposts        Repost[]
+  bookmarks      Bookmark[]
+
+  followers      Follow[]       @relation("Followee")
+  following      Follow[]       @relation("Follower")
+
+  @@map("users")
+}
+
+model Post {
+  id            String         @id @default(uuid())
+  authorId      String
+  text          String
+  media         Json           @default("[]") // JSON array of MinIO media objects: [{type: "image"|"video", src: "url"}]
+  likesCount    Int            @default(0)
+  commentsCount Int            @default(0)
+  repostsCount  Int            @default(0)
+  viewsCount    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  likes         Like[]
+  reposts       Repost[]
+  bookmarks     Bookmark[]
+  notifications Notification[]
+
+  @@map("posts")
+}
+
+model Comment {
+  id            String         @id @default(uuid())
+  postId        String
+  parentId      String?        // For nested X-style comment trees
+  authorId      String
+  text          String
+  likesCount    Int            @default(0)
+  commentsCount Int            @default(0)
+  viewsCount    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Follow {
+  followerUid  String
+  followeeUid  String
+  createdAt    DateTime @default(now())
+
+  follower     User     @relation("Follower", fields: [followerUid], references: [id], onDelete: Cascade)
+  followee     User     @relation("Followee", fields: [followeeUid], references: [id], onDelete: Cascade)
+
+  @@id([followerUid, followeeUid])
+  @@map("follows")
+}
+
+model Like {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@map("likes")
+}
+
+model Repost {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@map("reposts")
+}
+
+model Bookmark {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@map("bookmarks")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String
+  senderId    String
+  postId      String?
+  type        String   // "like" | "follow" | "comment" | "repost"
+  text        String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  recipient   User     @relation("RecipientNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender      User     @relation("SenderNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

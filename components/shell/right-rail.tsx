@@ -8,8 +8,7 @@ import { UserAvatar } from "@/components/user-avatar"
 import { spaces, formatCount } from "@/lib/production-data"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { db, followUser, getRealtimeTrends } from "@/lib/services"
-import { collection, query, where, limit, onSnapshot } from "firebase/firestore"
+import { followUser, getRealtimeTrends } from "@/lib/services"
 
 export function RightRail() {
   const { user } = useAuth()
@@ -23,21 +22,20 @@ export function RightRail() {
   }, [])
 
   useEffect(() => {
-    // Fetch profiles
-    const q = query(collection(db, "profiles"), limit(30))
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() }))
-      setAllProfiles(list)
-    })
+    // Fetch profiles suggestions
+    fetch("/api/users/suggestions")
+      .then((res) => res.json())
+      .then((list) => setAllProfiles(list))
+      .catch((err) => console.error(err))
   }, [])
 
   useEffect(() => {
     if (!user) return
-    const q = query(collection(db, "follows"), where("followerUid", "==", user.uid))
-    return onSnapshot(q, (snap) => {
-      const ids = snap.docs.map((doc) => doc.data().followeeUid)
-      setFollowedIds(ids)
-    })
+    // Fetch user follows
+    fetch(`/api/users/${user.uid}/follows`)
+      .then((res) => res.json())
+      .then((ids) => setFollowedIds(ids))
+      .catch((err) => console.error(err))
   }, [user])
 
   const suggestions = allProfiles

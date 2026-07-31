@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { AuthGuard } from "@/components/auth-guard"
-import { db, getUserProfile, toggleLikePost, toggleRepostPost, followUser } from "@/lib/services"
-import { collection, onSnapshot, query, where, orderBy, doc, addDoc, serverTimestamp, getDocs } from "firebase/firestore"
+import { getUserProfile, followUser, createComment, toggleLikePost, toggleRepostPost } from "@/lib/services"
+import { useEngagement } from "@/components/engagement-provider"
 import { Heart, MessageCircle, Repeat2, Bookmark, Share, UserPlus, X, Send, Play, Pause, Loader2, Compass } from "lucide-react"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
@@ -49,88 +49,74 @@ export default function ShortsPage() {
     }
   }
 
-  // Load all posts containing video from firestore
+  // Load all posts containing video from API
   useEffect(() => {
-    const postsRef = collection(db, "posts")
-    const q = query(postsRef, orderBy("createdAt", "desc"))
+    const fetchShorts = async () => {
+      try {
+        const response = await fetch("/api/posts?limit=50")
+        if (!response.ok) return
+        const list = await response.json()
+        
+        const videoItems = list.filter((p: any) => 
+          p.media && p.media.some((m: any) => m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)/i))
+        )
+        
+        // Sort using TikTok-style algorithm: Likes (12x), Comments (15x), Reposts (18x) with soft recency bias
+        videoItems.sort((a: any, b: any) => {
+          const aScore = (Number(a.likes || 0) * 12) + (Number(a.comments || 0) * 15) + (Number(a.reposts || 0) * 18)
+          const bScore = (Number(b.likes || 0) * 12) + (Number(b.comments || 0) * 15) + (Number(b.reposts || 0) * 18)
+          
+          const aTime = new Date(a.createdAt).getTime()
+          const bTime = new Date(b.createdAt).getTime()
+          const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
+          const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
+          
+          const aFinal = aScore - (aAgeHours * 0.8)
+          const bFinal = bScore - (bAgeHours * 0.8)
+          
+          return bFinal - aFinal
+        })
 
-    const unsub = onSnapshot(q, async (snap) => {
-      const items: ShortVideoPost[] = []
-      for (const d of snap.docs) {
-        const data = d.data()
-        const media = data.media || []
-        const hasVideo = media.some((m: any) => m.type === "video" || m.src?.match(/\.(mp4|webm|ogg|mov)/i))
-        if (hasVideo) {
-          const authorProfile = await getUserProfile(data.authorId)
-          items.push({
-            id: d.id,
-            authorId: data.authorId,
-            text: data.text || "",
-            media,
-            likes: Number(data.likes || 0),
-            comments: Number(data.comments || 0),
-            reposts: Number(data.reposts || 0),
-            createdAt: data.createdAt,
-            authorProfile,
-          })
-        }
+        setPosts(videoItems)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
       }
-      
-      // Sort using TikTok-style algorithm: Likes (12x), Comments (15x), Reposts (18x) with soft recency bias
-      items.sort((a, b) => {
-        const aScore = (a.likes * 12) + (a.comments * 15) + (a.reposts * 18)
-        const bScore = (b.likes * 12) + (b.comments * 15) + (b.reposts * 18)
-        
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : Date.now()
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : Date.now()
-        const aAgeHours = (Date.now() - aTime) / (1000 * 60 * 60)
-        const bAgeHours = (Date.now() - bTime) / (1000 * 60 * 60)
-        
-        const aFinal = aScore - (aAgeHours * 0.8)
-        const bFinal = bScore - (bAgeHours * 0.8)
-        
-        return bFinal - aFinal
-      })
+    }
 
-      setPosts(items)
-      setLoading(false)
-    })
-
-    return unsub
+    void fetchShorts()
   }, [])
 
   // Listen to comments on active post
   useEffect(() => {
     if (!activePostId) return
-    const commentsRef = collection(db, "posts", activePostId, "comments")
-    const q = query(commentsRef, orderBy("createdAt", "asc"))
-
-    const unsub = onSnapshot(q, async (snap) => {
-      const items: any[] = []
-      for (const d of snap.docs) {
-        const data = d.data()
-        const authorProfile = await getUserProfile(data.authorId)
-        items.push({
-          id: d.id,
-          ...data,
-          authorProfile,
-        })
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(`/api/posts/${activePostId}/comments`)
+        if (response.ok) {
+          const items = await response.json()
+          setComments(items)
+        }
+      } catch (err) {
+        console.error(err)
       }
-      setComments(items)
-    })
+    }
 
-    return unsub
+    void fetchComments()
+    const interval = setInterval(fetchComments, 6000)
+    return () => clearInterval(interval)
   }, [activePostId])
 
   const handlePostComment = async () => {
     if (!user || !activePostId || !newComment.trim()) return
     setPostingComment(true)
     try {
-      await addDoc(collection(db, "posts", activePostId, "comments"), {
+      const added = await createComment(activePostId, {
         authorId: user.uid,
         text: newComment.trim(),
-        createdAt: serverTimestamp(),
       })
+      setComments((prev) => [...prev, added])
       setNewComment("")
     } catch (err) {
       console.error(err)
@@ -248,10 +234,12 @@ function ShortPlayerCard({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [liked, setLiked] = useState(false)
-  const [reposted, setReposted] = useState(false)
   const [following, setFollowing] = useState(false)
   const { showNotice, showError } = usePopup()
+  
+  const { isLiked, isReposted } = useEngagement()
+  const liked = isLiked(post.id)
+  const reposted = isReposted(post.id)
 
   // IntersectionObserver to auto play/pause active video
   useEffect(() => {
@@ -274,22 +262,6 @@ function ShortPlayerCard({
     return () => observer.disconnect()
   }, [])
 
-  // Listen to like status
-  useEffect(() => {
-    if (!user) return
-    const likeRef = doc(db, "posts", post.id, "likes", user.uid)
-    const unsub = onSnapshot(likeRef, (snap) => setLiked(snap.exists()))
-    return unsub
-  }, [post.id, user])
-
-  // Listen to repost status
-  useEffect(() => {
-    if (!user) return
-    const repostRef = doc(db, "posts", post.id, "reposts", user.uid)
-    const unsub = onSnapshot(repostRef, (snap) => setReposted(snap.exists()))
-    return unsub
-  }, [post.id, user])
-
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -309,14 +281,7 @@ function ShortPlayerCard({
     try {
       await toggleLikePost(post.id, liked)
     } catch (err: any) {
-      console.error("Short Like operation failed", {
-        operation: "toggleLikePost",
-        uid: user.uid,
-        contentId: post.id,
-        contentType: "short",
-        errorCode: err.code || "unknown",
-        errorMessage: err.message || String(err)
-      })
+      console.error("Short Like operation failed", err)
       showError("Like Failed", "Couldn't update your Like. Please try again.")
     }
   }
@@ -329,14 +294,7 @@ function ShortPlayerCard({
     try {
       await toggleRepostPost(post.id, reposted)
     } catch (err: any) {
-      console.error("Short Repost operation failed", {
-        operation: "toggleRepostPost",
-        uid: user.uid,
-        contentId: post.id,
-        contentType: "short",
-        errorCode: err.code || "unknown",
-        errorMessage: err.message || String(err)
-      })
+      console.error("Short Repost operation failed", err)
       showError("Repost Failed", "Couldn't update your Repost. Please try again.")
     }
   }

@@ -5,10 +5,9 @@ import { FeedColumn } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { Composer } from "@/components/composer"
 import { PostCard } from "@/components/post-card"
-import { subscribePosts, subscribeFollowingPosts, db, followUser } from "@/lib/services"
+import { subscribePosts, subscribeFollowingPosts, followUser } from "@/lib/services"
 import { useAuth } from "@/components/auth-provider"
 import type { Post } from "@/lib/production-data"
-import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore"
 import { UserPlus, Sparkles } from "lucide-react"
 
 const tabs = ["For you", "Following"]
@@ -38,42 +37,33 @@ export default function HomePage() {
   useEffect(() => {
     if (!user?.uid) return
 
-    const followsQuery = query(
-      collection(db, "follows"),
-      where("followerUid", "==", user.uid)
-    )
-    const unsubFollows = onSnapshot(followsQuery, (snap) => {
-      const ids = snap.docs.map((d) => d.data().followedUid)
-      setFollowedUids(ids)
-    })
-
-    const targetUsernames = [
-      "sironyeka",
-      "kingsholz",
-      "queenpreciousd",
-      "vpartnership",
-      "vibeztube",
-      "debest_nft",
-      "dammi_esq",
-      "addiee69019",
-    ]
-
-    const fetchTargets = async () => {
+    const fetchFollowsAndTargets = async () => {
       try {
-        const q = query(
-          collection(db, "profiles"),
-          where("username", "in", targetUsernames)
+        // 1. Fetch Follows
+        const fRes = await fetch(`/api/users/${user.uid}/follows`)
+        if (fRes.ok) {
+          const ids = await fRes.json()
+          setFollowedUids(ids)
+        }
+
+        // 2. Fetch target profile creators
+        const targetUsernames = ["sironyeka", "kingsholz", "queenpreciousd", "vpartnership", "vibeztube", "debest_nft", "dammi_esq", "addiee69019"]
+        const list = await Promise.all(
+          targetUsernames.map(async (uname) => {
+            try {
+              const res = await fetch(`/api/users/${uname}?type=username`)
+              if (res.ok) return await res.json()
+            } catch {}
+            return null
+          })
         )
-        const snap = await getDocs(q)
-        const profiles = snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
-        setTargetProfiles(profiles)
+        setTargetProfiles(list.filter(Boolean) as any[])
       } catch (err) {
-        console.error("Failed to fetch target follow profiles", err)
+        console.error("Failed to load follows and targets", err)
       }
     }
 
-    void fetchTargets()
-    return () => unsubFollows()
+    void fetchFollowsAndTargets()
   }, [user?.uid])
 
   const [skipped, setSkipped] = useState(false)

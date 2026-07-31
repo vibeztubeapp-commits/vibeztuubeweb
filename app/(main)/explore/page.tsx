@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { searchUsers, followUser, db, getRealtimeTrends } from "@/lib/services"
-import { collection, query, where, getDocs, onSnapshot, limit, orderBy } from "firebase/firestore"
+import { searchUsers, followUser, getRealtimeTrends } from "@/lib/services"
 import { Search, Compass, UserPlus, Sparkles, TrendingUp, Play } from "lucide-react"
 import Link from "next/link"
 import { PostCard } from "@/components/post-card"
@@ -28,21 +27,20 @@ export default function ExplorePage() {
   useEffect(() => {
     const fetchTrendingData = async () => {
       try {
-        const postsRef = collection(db, "posts")
-        const q = query(postsRef, orderBy("createdAt", "desc"), limit(50))
-        const snap = await getDocs(q)
-        const allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() } as any))
+        const res = await fetch("/api/posts?limit=50")
+        if (!res.ok) return
+        const allPosts = await res.json()
 
         // 1. Resolve Trending Videos (has video media, sorted by views descending)
         const videoPosts = allPosts
-          .filter(p => p.media && p.media.some((m: any) => m.type === "video" || m.src?.match(/\.(mp4|webm|mov)/i)))
-          .sort((a, b) => Number(b.views || 0) - Number(a.views || 0))
+          .filter((p: any) => p.media && p.media.some((m: any) => m.type === "video" || m.src?.match(/\.(mp4|webm|mov)/i)))
+          .sort((a: any, b: any) => Number(b.views || 0) - Number(a.views || 0))
           .slice(0, 3)
         setTrendingVideos(videoPosts)
 
         // 2. Resolve Trending Posts (sorted by engagement score or views descending)
         const popularPosts = [...allPosts]
-          .sort((a, b) => {
+          .sort((a: any, b: any) => {
             const aScore = Number(a.likes || 0) * 10 + Number(a.reposts || 0) * 15 + Number(a.views || 0)
             const bScore = Number(b.likes || 0) * 10 + Number(b.reposts || 0) * 15 + Number(b.views || 0)
             return bScore - aScore
@@ -66,24 +64,34 @@ export default function ExplorePage() {
     const fetchTargets = async () => {
       const uids = ["@sironyeka", "@kingsholz", "@queenpreciousd", "@vpartnership", "@vibeztube", "@debest_nft", "@dammi_esq", "@addiee69019"]
       const cleanHandles = uids.map((h) => h.replace("@", ""))
-      const profilesRef = collection(db, "profiles")
-      const q = query(profilesRef, where("username", "in", cleanHandles))
-      const snap = await getDocs(q)
-      const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
-      setSuggestedCreators(list)
+      const list = await Promise.all(
+        cleanHandles.map(async (uname) => {
+          try {
+            const res = await fetch(`/api/users/${uname}?type=username`)
+            if (res.ok) return await res.json()
+          } catch {}
+          return null
+        })
+      )
+      setSuggestedCreators(list.filter(Boolean) as any[])
     }
 
     // 2. Fetch logged-in user's follows
-    if (!user?.uid) return
-    const followsRef = collection(db, "follows")
-    const qFollows = query(followsRef, where("followerUid", "==", user.uid))
-    const unsubFollows = onSnapshot(qFollows, (snap) => {
-      const uids = snap.docs.map((d) => d.data().followeeUid)
-      setFollowedIds(uids)
-    })
+    const fetchFollows = async () => {
+      if (!user?.uid) return
+      try {
+        const res = await fetch(`/api/users/${user.uid}/follows`)
+        if (res.ok) {
+          const ids = await res.json()
+          setFollowedIds(ids)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
     
     void fetchTargets()
-    return () => unsubFollows()
+    void fetchFollows()
   }, [user?.uid])
 
   const handleSearch = async () => {
