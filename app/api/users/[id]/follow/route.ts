@@ -1,6 +1,29 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  try {
+    const { searchParams } = new URL(req.url)
+    const followerUid = searchParams.get("followerUid")
+    const followeeUid = params.id
+
+    if (!followerUid) {
+      return NextResponse.json({ following: false })
+    }
+
+    const existing = await prisma.follow.findUnique({
+      where: {
+        followerUid_followeeUid: { followerUid, followeeUid },
+      },
+    })
+
+    return NextResponse.json({ following: !!existing })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
