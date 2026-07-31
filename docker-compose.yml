@@ -55,6 +55,8 @@ services:
       - db
       - redis
       - minio
+    env_file:
+      - .env.local
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://vibeztube_user:vibeztube_secure_pwd_998@vibeztube_postgres:5432/vibeztube_db?schema=public
