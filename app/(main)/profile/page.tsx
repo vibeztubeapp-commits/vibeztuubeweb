@@ -25,6 +25,7 @@ function ProfileView() {
 
   const [profile, setProfile] = useState<any>(null)
   const [following, setFollowing] = useState(false)
+  const [subscribed, setSubscribed] = useState(false)
   const [activeTab, setActiveTab] = useState("posts")
   const [posts, setPosts] = useState<any[]>([])
   const [replies, setReplies] = useState<any[]>([])
@@ -74,36 +75,21 @@ function ProfileView() {
 
   useEffect(() => {
     if (!user || !targetUid || targetUid === user.uid) return
-    const followRef = doc(db, "follows", `${user.uid}_${targetUid}`)
-    return onSnapshot(followRef, (snap) => {
-      setFollowing(snap.exists())
-    })
+    fetch(`/api/users/${targetUid}/follow?followerUid=${user.uid}`)
+      .then(res => res.json())
+      .then(data => setFollowing(!!data.following))
+      .catch(err => console.error(err))
   }, [user, targetUid])
 
   useEffect(() => {
-    if (!targetUid) return
-    const q = query(collection(db, "follows"), where("followeeUid", "==", targetUid))
-    return onSnapshot(q, (snap) => {
-      setFollowersCount(snap.size)
-    })
-  }, [targetUid])
-
-  useEffect(() => {
-    if (!targetUid) return
-    const q = query(collection(db, "follows"), where("followerUid", "==", targetUid))
-    return onSnapshot(q, (snap) => {
-      setFollowingCount(snap.size)
-    })
-  }, [targetUid])
-
-  const [subscribed, setSubscribed] = useState(false)
+    if (!profile) return
+    setFollowersCount(profile.followersCount || 0)
+    setFollowingCount(profile.followingCount || 0)
+  }, [profile])
 
   useEffect(() => {
     if (!user || !targetUid || targetUid === user.uid) return
-    const subRef = doc(db, "subscriptions", `${user.uid}_${targetUid}`)
-    return onSnapshot(subRef, (snap) => {
-      setSubscribed(snap.exists() && snap.data()?.enabled)
-    })
+    setSubscribed(false)
   }, [user, targetUid])
 
   const handleSubscribeToggle = async () => {

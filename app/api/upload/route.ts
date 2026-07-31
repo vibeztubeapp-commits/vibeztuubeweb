@@ -51,8 +51,8 @@ export async function POST(req: Request) {
     )
 
     // Compute external S3/MinIO resource access url path
-    const externalDomain = process.env.NEXT_PUBLIC_MINIO_EXTERNAL_URL || "http://localhost:9000"
-    const srcUrl = `${externalDomain}/${bucketName}/${fileKey}`
+    const externalDomain = process.env.NEXT_PUBLIC_MINIO_EXTERNAL_URL
+    const srcUrl = externalDomain ? `${externalDomain}/${bucketName}/${fileKey}` : `/${bucketName}/${fileKey}`
 
     return NextResponse.json({
       src: srcUrl,
