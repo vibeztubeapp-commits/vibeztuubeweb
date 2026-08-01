@@ -213,7 +213,8 @@ export async function reserveUsername(username: string, uid?: string) { return t
 export async function confirmUsernameReservation(username: string, uid?: string) { return true }
 
 export async function getEmailByUsername(username: string) {
-    const response = await fetch(`/api/users/${username}?type=username`)
+    const cleanUsername = username.startsWith("@") ? username.slice(1) : username
+    const response = await fetch(`/api/users/${cleanUsername}?type=username`)
     if (!response.ok) return null
     const data = await response.json()
     return data.email || null
