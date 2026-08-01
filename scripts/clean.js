@@ -124,6 +124,44 @@ async function clean() {
     }
   }
   console.log(`Successfully merged/deleted ${resolvedUsersCount} duplicate user accounts.`)
+
+  // 5. Clean duplicate and empty posts
+  console.log("Cleaning duplicate/empty posts...")
+  const posts = await prisma.post.findMany({
+    orderBy: { createdAt: "asc" }
+  })
+  const postKeys = new Map()
+  let deletedPostsCount = 0
+
+  for (const post of posts) {
+    const textKey = (post.text || "").trim()
+    const authorKey = post.authorId
+    const key = `${authorKey}_${textKey}`
+
+    if (textKey === "") {
+      // Delete empty posts if the author already has one
+      if (postKeys.has(key)) {
+        await prisma.post.delete({ where: { id: post.id } })
+        deletedPostsCount++
+      } else {
+        postKeys.set(key, post)
+      }
+    } else {
+      // For non-empty posts, check if they are identical and within 2 hours
+      if (postKeys.has(key)) {
+        const prevPost = postKeys.get(key)
+        const diffMs = Math.abs(new Date(post.createdAt).getTime() - new Date(prevPost.createdAt).getTime())
+        const diffHours = diffMs / (1000 * 60 * 60)
+        if (diffHours < 2) {
+          await prisma.post.delete({ where: { id: post.id } })
+          deletedPostsCount++
+        }
+      } else {
+        postKeys.set(key, post)
+      }
+    }
+  }
+  console.log(`Removed ${deletedPostsCount} duplicate/empty posts.`)
   console.log("Database cleanup completed successfully!")
 }
 
