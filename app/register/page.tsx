@@ -275,7 +275,7 @@ export default function RegisterPage() {
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-transparent text-primary">
                                     {avatar ? <img src={avatar} alt="avatar preview" className="h-12 w-12 rounded-full object-cover" /> : <Camera className="h-5 w-5 text-muted-foreground" />}
                                 </div>
-                                <input type="file" accept="image/*" capture="environment" className="w-full text-sm text-muted-foreground bg-transparent" onChange={(event) => {
+                                <input type="file" accept="image/*" className="w-full text-sm text-muted-foreground bg-transparent" onChange={(event) => {
                                     const file = event.target.files?.[0]
                                     if (file) {
                                         const preview = URL.createObjectURL(file)

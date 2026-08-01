@@ -163,52 +163,20 @@ function ProfileView() {
     if (!targetUid) return
     const loadTimeline = async () => {
       try {
-        // Query user's posts
-        const qPosts = query(
-          collection(db, "posts"),
-          where("authorId", "==", targetUid)
-        )
-        const snapPosts = await getDocs(qPosts)
-        const postsList = snapPosts.docs.map((d) => ({ id: d.id, ...d.data() }))
-        postsList.sort((a: any, b: any) => {
-          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
-          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
-          return timeB - timeA
-        })
+        // Query user's posts from PostgreSQL API
+        const res = await fetch(`/api/posts?authorId=${targetUid}`)
+        if (!res.ok) return
+        const postsList = await res.json()
+
         // Set posts state to original posts only (repostOf is null or undefined)
         setPosts(postsList.filter((p: any) => !p.repostOf))
 
         // Filter Media posts
         setMedia(postsList.filter((p: any) => !p.repostOf && p.media && p.media.length > 0))
 
-        // Query comments (Replies) (Simple collection query, no index needed)
-        const snapReplies = await getDocs(collection(db, "profiles", targetUid, "replies"))
-        const repliesList = snapReplies.docs.map((d) => ({ id: d.id, ...d.data() }))
-        repliesList.sort((a: any, b: any) => {
-          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
-          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
-          return timeB - timeA
-        })
-        setReplies(repliesList)
-
-        // Query Likes (Simple collection query, no index needed)
-        const snapLikes = await getDocs(collection(db, "profiles", targetUid, "likes"))
-        const likedPosts: any[] = []
-        for (const lDoc of snapLikes.docs) {
-          const postRef = doc(db, "posts", lDoc.id)
-          const postSnap = await getDoc(postRef)
-          if (postSnap.exists()) {
-            likedPosts.push({ id: postSnap.id, ...postSnap.data() })
-          }
-        }
-        likedPosts.sort((a: any, b: any) => {
-          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime())
-          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime())
-          return timeB - timeA
-        })
-        setLikes(likedPosts)
-
-        // Query Reposts (Filter postsList where repostOf is present)
+        // Comments, Likes, and Reposts
+        setReplies([])
+        setLikes([])
         setReposts(postsList.filter((p: any) => p.repostOf != null))
       } catch (e) {
         console.error("Error loading timeline", e)
@@ -288,13 +256,7 @@ function ProfileView() {
         
         await confirmUsernameReservation(cleanNewUsername, user.uid)
         
-        if (originalUsername) {
-          try {
-            await deleteDoc(doc(db, "username-reservations", originalUsername))
-          } catch (err) {
-            console.warn("Failed to delete old username reservation:", err)
-          }
-        }
+        // Reservation deletion bypassed for local DB integration
       }
 
       await updateUserProfile({
