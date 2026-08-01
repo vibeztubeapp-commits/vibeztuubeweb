@@ -26,27 +26,13 @@ type NotificationItem = {
 }
 
 export function MobileHeader() {
-  const { user, signOut } = useAuth()
-  const [profile, setProfile] = useState<any>(null)
+  const { user, profile: authProfile, signOut } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [followingCount, setFollowingCount] = useState(0)
   const [followersCount, setFollowersCount] = useState(0)
-
-  useEffect(() => {
-    if (!user) {
-      setProfile(null)
-      return
-    }
-    const profileRef = doc(db, "profiles", user.uid)
-    return onSnapshot(profileRef, (snap: any) => {
-      if (snap.exists()) {
-        setProfile({ uid: snap.id, ...snap.data() })
-      }
-    })
-  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -99,7 +85,14 @@ export function MobileHeader() {
     }
   }, [user])
 
-  const userToShow = profile || currentUser
+  const userToShow = authProfile || (user ? {
+    uid: user.uid,
+    id: user.uid,
+    displayName: user.displayName || user.email?.split("@")[0] || "User",
+    username: user.email?.split("@")[0] || "user",
+    avatarUrl: user.photoURL || "",
+    verifiedBadge: null
+  } : currentUser)
 
   useEffect(() => {
     if (!userToShow?.uid) return
