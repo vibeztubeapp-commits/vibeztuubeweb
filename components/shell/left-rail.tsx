@@ -90,7 +90,15 @@ export function LeftRail() {
 
 
 
-  const userToShow = profile || currentUser
+  const userToShow = user
+    ? (profile || {
+        id: user.uid,
+        displayName: user.displayName || user.email?.split("@")[0] || "User",
+        username: user.email?.split("@")[0] || "user",
+        avatarUrl: user.photoURL || "",
+        verifiedBadge: null,
+      })
+    : currentUser
 
   return (
     <aside className="sticky top-0 hidden h-svh shrink-0 flex-col justify-between border-r border-border px-2 py-4 md:flex xl:w-64 xl:px-4">
