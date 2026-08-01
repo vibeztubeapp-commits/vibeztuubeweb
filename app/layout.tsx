@@ -1,4 +1,3 @@
-import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -61,7 +60,6 @@ export default function RootLayout({
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
-        {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
   )
