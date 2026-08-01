@@ -162,6 +162,43 @@ async function clean() {
     }
   }
   console.log(`Removed ${deletedPostsCount} duplicate/empty posts.`)
+
+  // 6. Clean duplicate comments
+  console.log("Cleaning duplicate/empty comments...")
+  const comments = await prisma.comment.findMany({
+    orderBy: { createdAt: "asc" }
+  })
+  const commentKeys = new Map()
+  let deletedCommentsCount = 0
+
+  for (const comment of comments) {
+    const textKey = (comment.text || "").trim()
+    const authorKey = comment.authorId
+    const postKey = comment.postId
+    const key = `${postKey}_${authorKey}_${textKey}`
+
+    if (textKey === "") {
+      if (commentKeys.has(key)) {
+        await prisma.comment.delete({ where: { id: comment.id } })
+        deletedCommentsCount++
+      } else {
+        commentKeys.set(key, comment)
+      }
+    } else {
+      if (commentKeys.has(key)) {
+        const prevComment = commentKeys.get(key)
+        const diffMs = Math.abs(new Date(comment.createdAt).getTime() - new Date(prevComment.createdAt).getTime())
+        const diffHours = diffMs / (1000 * 60 * 60)
+        if (diffHours < 2) {
+          await prisma.comment.delete({ where: { id: comment.id } })
+          deletedCommentsCount++
+        }
+      } else {
+        commentKeys.set(key, comment)
+      }
+    }
+  }
+  console.log(`Removed ${deletedCommentsCount} duplicate/empty comments.`)
   console.log("Database cleanup completed successfully!")
 }
 
