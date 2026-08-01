@@ -61,6 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
             if (nextUser) {
                 try {
+                    const checkRes = await fetch("/api/auth/session")
+                    if (checkRes.ok) {
+                        const localUser = await checkRes.json()
+                        if (localUser && localUser.uid !== nextUser.uid) {
+                            await firebaseSignOut(auth)
+                            return
+                        }
+                    }
+
                     const prof = await ensureProfile(nextUser)
                     setProfile(prof)
                     setUser({
