@@ -33,6 +33,9 @@ model User {
   followers      Follow[]       @relation("Followee")
   following      Follow[]       @relation("Follower")
 
+  conversations  ConversationMember[]
+  messages       Message[]
+
   @@map("users")
 }
 
