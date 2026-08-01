@@ -11,7 +11,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
     if (isUsername) {
       profile = await prisma.user.findUnique({
-        where: { username: params.id },
+        where: { username: params.id.toLowerCase() },
       })
     } else {
       profile = await prisma.user.findUnique({
