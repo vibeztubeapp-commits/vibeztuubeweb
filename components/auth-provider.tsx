@@ -26,6 +26,7 @@ import type { ProfileData } from "@/lib/services"
 
 type AuthContextValue = {
     user: FirebaseUser | null
+    profile: ProfileData | null
     loading: boolean
     signInWithEmail: (email: string, password: string) => Promise<void>
     signUpWithEmail: (email: string, password: string, profileOverrides?: Partial<ProfileData>) => Promise<void>
@@ -42,6 +43,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const [user, setUser] = useState<FirebaseUser | null>(null)
+    const [profile, setProfile] = useState<ProfileData | null>(null)
     const [loading, setLoading] = useState(true)
     const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null)
 
@@ -55,7 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
             setUser(nextUser)
             if (nextUser) {
-                await ensureProfile(nextUser)
+                const prof = await ensureProfile(nextUser)
+                setProfile(prof)
+            } else {
+                setProfile(null)
             }
             setLoading(false)
         })
@@ -129,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const value = useMemo<AuthContextValue>(
         () => ({
             user,
+            profile,
             loading,
             signInWithEmail,
             signUpWithEmail,
@@ -139,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             verifyEmail,
             signOut,
         }),
-        [user, loading, phoneConfirmation],
+        [user, profile, loading, phoneConfirmation],
     )
 
     return (

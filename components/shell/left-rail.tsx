@@ -49,8 +49,7 @@ function RailLink({ item, active, badgeOverride }: { item: NavItem; active: bool
 
 export function LeftRail() {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
-  const [profile, setProfile] = useState<any>(null)
+  const { user, profile, signOut } = useAuth()
 
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
@@ -89,13 +88,7 @@ export function LeftRail() {
     }
   }, [user])
 
-  useEffect(() => {
-    if (!user) {
-      setProfile(null)
-      return
-    }
-    void getUserProfile(user.uid).then(setProfile)
-  }, [user])
+
 
   const userToShow = profile || currentUser
 
