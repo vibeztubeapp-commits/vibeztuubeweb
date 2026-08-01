@@ -6,8 +6,8 @@ import { AuthGuard } from "@/components/auth-guard"
 import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { Button } from "@/components/ui/button"
-import { db } from "@/lib/services"
-import { collection, getDocs, query, where, onSnapshot, doc } from "firebase/firestore"
+import { getUserProfile } from "@/lib/services"
+// Cleaned Firestore imports
 import { LayoutDashboard, Users, Heart, Bookmark, Eye, Play, BarChart2, CheckCircle2, XCircle } from "lucide-react"
 
 export default function VCreatorStudioPage() {

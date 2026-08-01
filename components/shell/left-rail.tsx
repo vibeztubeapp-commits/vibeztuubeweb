@@ -14,8 +14,6 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
 import { getUserProfile } from "@/lib/services"
 import { useEffect, useState } from "react"
-import { db } from "@/lib/services"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { VerifiedBadge } from "@/components/verified-badge"
 
 function isActive(pathname: string, href: string) {
@@ -58,34 +56,22 @@ export function LeftRail() {
   useEffect(() => {
     if (!user) return
 
-    const qNotif = query(
-      collection(db, "notifications"),
-      where("recipientId", "==", user.uid),
-      where("read", "==", false)
-    )
-    const unsubNotif = onSnapshot(qNotif, (snap) => {
-      setUnreadNotifications(snap.docs.length)
-    })
-
-    const qChats = query(
-      collection(db, "conversations"),
-      where("userIds", "array-contains", user.uid)
-    )
-    const unsubChats = onSnapshot(qChats, (snap) => {
-      let unreadSum = 0
-      snap.docs.forEach((doc) => {
-        const data = doc.data()
-        if (data.unreadCount && data.lastSenderId !== user.uid) {
-          unreadSum += Number(data.unreadCount || 0)
+    const fetchCounts = async () => {
+      try {
+        const notifRes = await fetch("/api/notifications")
+        if (notifRes.ok) {
+          const list = await notifRes.json()
+          setUnreadNotifications(list.filter((n: any) => !n.read).length)
         }
-      })
-      setUnreadMessages(unreadSum)
-    })
-
-    return () => {
-      unsubNotif()
-      unsubChats()
+      } catch (err) {
+        console.error("Failed to fetch notification counts:", err)
+      }
     }
+
+    void fetchCounts()
+    const interval = setInterval(fetchCounts, 15000)
+
+    return () => clearInterval(interval)
   }, [user])
 
 

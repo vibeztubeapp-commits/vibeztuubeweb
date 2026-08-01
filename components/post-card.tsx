@@ -7,9 +7,9 @@ import { BadgeCheck, Heart, MessageCircle, Repeat2, Eye, Share, Bookmark, MoreHo
 import { getUser, formatCount, formatTimeAgo, type Post } from "@/lib/production-data"
 import { UserAvatar } from "@/components/user-avatar"
 import { cn } from "@/lib/utils"
-import { getUserProfile, db, toggleLikePost, toggleRepostPost, toggleBookmarkPost, incrementPostViews } from "@/lib/services"
+import { getUserProfile, toggleLikePost, toggleRepostPost, toggleBookmarkPost, incrementPostViews } from "@/lib/services"
 import { useAuth } from "@/components/auth-provider"
-import { doc, onSnapshot, getDoc } from "firebase/firestore"
+// Cleaned Firestore imports
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useEngagement } from "@/components/engagement-provider"
 import { usePopup } from "@/components/popup-provider"
@@ -338,8 +338,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
                       onClick={() => {
                         setShowMenu(false)
                         showWarning("Delete Post", "Are you sure you want to delete this post? This action is permanent and cannot be undone.", async () => {
-                          const { deleteDoc, doc } = await import("firebase/firestore")
-                          await deleteDoc(doc(db, "posts", post.id))
+                          await fetch(`/api/posts/${post.id}`, { method: "DELETE" })
                         })
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-red-500/10 text-red-500 transition-colors flex items-center gap-2 cursor-pointer border-t border-border mt-1"

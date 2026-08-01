@@ -9,8 +9,7 @@ import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { db, getUserProfile, searchUsers, createConversation, sendMessage } from "@/lib/services"
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, serverTimestamp, addDoc, getDocs, limit } from "firebase/firestore"
+import { getUserProfile, searchUsers } from "@/lib/services"
 import { Send, Search, ArrowLeft, MessageSquare, Plus, Loader2 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 
@@ -49,80 +48,81 @@ function MessagesView() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Listen for real-time active conversation list
+  // Listen for active conversation list
   useEffect(() => {
     if (!user) return
 
-    const q = query(
-      collection(db, "conversations"),
-      where("userIds", "array-contains", user.uid)
-    )
+    const loadConversations = async () => {
+      try {
+        const res = await fetch("/api/conversations")
+        if (res.ok) {
+          const list = await res.json()
+          const mapped = list.map((c: any) => ({
+            id: c.id,
+            userIds: [user.uid, c.otherUser?.id],
+            lastMessage: c.lastMessage?.text || "Conversation started",
+            updatedAt: c.updatedAt,
+            otherProfile: c.otherUser ? {
+              uid: c.otherUser.id,
+              id: c.otherUser.id,
+              username: c.otherUser.username,
+              displayName: c.otherUser.displayName,
+              avatarUrl: c.otherUser.avatarUrl,
+              verifiedBadge: c.otherUser.verifiedBadge
+            } : null
+          }))
+          setConversations(mapped)
 
-    const unsub = onSnapshot(q, async (snap) => {
-      const list: ConversationItem[] = []
-      for (const d of snap.docs) {
-        const data = d.data()
-        const otherId = data.userIds.find((id: string) => id !== user.uid) || "guest"
-        const otherProfile = await getUserProfile(otherId)
-
-        list.push({
-          id: d.id,
-          userIds: data.userIds,
-          lastMessage: data.lastMessage || "",
-          unreadCount: data.unreadCount || 0,
-          lastSenderId: data.lastSenderId || "",
-          updatedAt: data.updatedAt,
-          otherProfile,
-        })
+          if (activeChat) {
+            const updatedActive = mapped.find((item: any) => item.id === activeChat.id)
+            if (updatedActive) {
+              setActiveChat(updatedActive)
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load conversations:", err)
+      } finally {
+        setLoadingConversations(false)
       }
+    }
 
-      // Sort by last message timestamp client-side
-      list.sort((a, b) => {
-        const timeA = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : new Date(a.updatedAt).getTime()
-        const timeB = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : new Date(b.updatedAt).getTime()
-        return timeB - timeA
-      })
+    void loadConversations()
+    const interval = setInterval(loadConversations, 5000)
 
-      setConversations(list)
-      setLoadingConversations(false)
-    })
+    return () => clearInterval(interval)
+  }, [user, activeChat?.id])
 
-    return () => unsub()
-  }, [user])
-
-  // Listen for messages inside the active conversation in real-time
+  // Listen for messages inside the active conversation
   useEffect(() => {
     if (!activeChat) {
       setMessages([])
       return
     }
 
-    // Reset unread count for this conversation
-    if (activeChat.unreadCount && activeChat.unreadCount > 0 && activeChat.lastSenderId !== user?.uid) {
-      void updateDoc(doc(db, "conversations", activeChat.id), { unreadCount: 0 })
+    const loadMessages = async () => {
+      try {
+        const res = await fetch(`/api/messages/${activeChat.id}`)
+        if (res.ok) {
+          const list = await res.json()
+          const mapped = list.map((m: any) => ({
+            id: m.id,
+            senderUid: m.senderId,
+            text: m.text,
+            createdAt: m.createdAt
+          }))
+          setMessages(mapped)
+        }
+      } catch (err) {
+        console.error("Failed to load messages:", err)
+      }
     }
 
-    const q = query(
-      collection(db, "conversations", activeChat.id, "messages"),
-      orderBy("createdAt", "asc")
-    )
+    void loadMessages()
+    const interval = setInterval(loadMessages, 3000)
 
-    const unsub = onSnapshot(q, (snap) => {
-      const msgs: ChatMessage[] = []
-      snap.docs.forEach((d) => {
-        const data = d.data()
-        msgs.push({
-          id: d.id,
-          senderUid: data.senderUid,
-          text: data.text,
-          createdAt: data.createdAt,
-        })
-      })
-      setMessages(msgs)
-    })
-
-    return () => unsub()
-  }, [activeChat, user])
+    return () => clearInterval(interval)
+  }, [activeChat?.id])
 
   // Scroll to bottom of chat when new message arrives
   useEffect(() => {
@@ -151,7 +151,6 @@ function MessagesView() {
     setSearching(true)
     try {
       const results = await searchUsers(searchQuery)
-      // Exclude active user from results
       setSearchResults(results.filter((u: any) => u.uid !== user?.uid && u.id !== user?.uid))
     } catch (err) {
       console.error(err)
@@ -165,7 +164,6 @@ function MessagesView() {
     const recipientId = recipient.uid || recipient.id
     if (!recipientId) return
     
-    // Check if conversation already exists
     const existing = conversations.find((c) => c.userIds.includes(recipientId))
     if (existing) {
       setActiveChat(existing)
@@ -176,23 +174,35 @@ function MessagesView() {
     }
 
     try {
-      const cid = await createConversation({
-        userIds: [user.uid, recipientId],
-        lastMessage: "Conversation started",
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId })
       })
 
-      const newConv: ConversationItem = {
-        id: cid,
-        userIds: [user.uid, recipientId],
-        lastMessage: "Conversation started",
-        updatedAt: new Date().toISOString(),
-        otherProfile: recipient,
-      }
+      if (res.ok) {
+        const data = await res.json()
+        const newConv: ConversationItem = {
+          id: data.id,
+          userIds: [user.uid, recipientId],
+          lastMessage: "Conversation started",
+          updatedAt: new Date().toISOString(),
+          otherProfile: data.otherUser ? {
+            uid: data.otherUser.id,
+            id: data.otherUser.id,
+            username: data.otherUser.username,
+            displayName: data.otherUser.displayName,
+            avatarUrl: data.otherUser.avatarUrl,
+            verifiedBadge: data.otherUser.verifiedBadge
+          } : recipient
+        }
 
-      setActiveChat(newConv)
-      setMobileThreadOpen(true)
-      setSearchQuery("")
-      setSearchResults([])
+        setConversations((prev) => [newConv, ...prev])
+        setActiveChat(newConv)
+        setMobileThreadOpen(true)
+        setSearchQuery("")
+        setSearchResults([])
+      }
     } catch (err) {
       console.error(err)
     }
@@ -204,20 +214,21 @@ function MessagesView() {
     setInputText("")
 
     try {
-      // Send message doc
-      await addDoc(collection(db, "conversations", activeChat.id, "messages"), {
-        senderUid: user.uid,
-        text,
-        createdAt: serverTimestamp(),
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: activeChat.id, text })
       })
 
-      // Update parent conversation summary
-      await updateDoc(doc(db, "conversations", activeChat.id), {
-        lastMessage: text,
-        lastSenderId: user.uid,
-        unreadCount: activeChat.unreadCount !== undefined ? activeChat.unreadCount + 1 : 1,
-        updatedAt: serverTimestamp(),
-      })
+      if (res.ok) {
+        const msg = await res.json()
+        setMessages((prev) => [...prev, {
+          id: msg.id,
+          senderUid: msg.senderId,
+          text: msg.text,
+          createdAt: msg.createdAt
+        }])
+      }
     } catch (err) {
       console.error(err)
     }

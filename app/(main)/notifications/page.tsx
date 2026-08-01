@@ -8,8 +8,7 @@ import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { db, getUserProfile } from "@/lib/services"
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, writeBatch, getDoc } from "firebase/firestore"
+// Cleaned Firestore imports
 import { Heart, MessageCircle, UserPlus, AtSign, ShieldAlert, Radio, Check, CheckCheck, Bell } from "lucide-react"
 
 type NotificationItem = {

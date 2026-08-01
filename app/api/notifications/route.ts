@@ -1,78 +1,63 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getSessionUser } from "@/lib/auth-session"
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url)
-    const recipientId = searchParams.get("recipientId")
-
-    if (!recipientId) {
-      return NextResponse.json({ error: "Missing recipientId" }, { status: 400 })
+    const userId = await getSessionUser()
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const list = await prisma.notification.findMany({
-      where: { recipientId },
+    const notifications = await prisma.notification.findMany({
+      where: { recipientId: userId },
+      orderBy: { createdAt: "desc" },
       include: {
         sender: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+        post: true
+      }
     })
 
-    const formatted = list.map((n) => ({
+    const formatted = notifications.map((n) => ({
       id: n.id,
       recipientId: n.recipientId,
       senderId: n.senderId,
-      postId: n.postId || null,
+      postId: n.postId,
       type: n.type,
       text: n.text,
       read: n.read,
-      createdAt: n.createdAt.toISOString(),
+      createdAt: n.createdAt,
       senderProfile: n.sender ? {
         uid: n.sender.id,
         username: n.sender.username,
         displayName: n.sender.displayName,
         avatarUrl: n.sender.avatarUrl,
-        verifiedBadge: n.sender.verifiedBadge,
-      } : null,
+        verifiedBadge: n.sender.verifiedBadge
+      } : null
     }))
 
     return NextResponse.json(formatted)
   } catch (err: any) {
-    console.error("Get notifications API error:", err)
+    console.error("GET notifications API error:", err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    const body = await req.json()
-    const { notificationId, action, recipientId } = body
-
-    if (action === "readAll" && recipientId) {
-      await prisma.notification.updateMany({
-        where: { recipientId, read: false },
-        data: { read: true },
-      })
-      return NextResponse.json({ success: true })
+    const userId = await getSessionUser()
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!notificationId) {
-      return NextResponse.json({ error: "Missing notificationId" }, { status: 400 })
-    }
+    await prisma.notification.updateMany({
+      where: { recipientId: userId, read: false },
+      data: { read: true }
+    })
 
-    if (action === "read") {
-      const updated = await prisma.notification.update({
-        where: { id: notificationId },
-        data: { read: true },
-      })
-      return NextResponse.json(updated)
-    }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+    return NextResponse.json({ success: true })
   } catch (err: any) {
-    console.error("Update notification API error:", err)
+    console.error("POST notifications API error:", err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

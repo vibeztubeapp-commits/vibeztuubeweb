@@ -5,11 +5,10 @@ import { Wordmark } from "@/components/brand"
 import { UserAvatar } from "@/components/user-avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/components/auth-provider"
-import { db, getUserProfile } from "@/lib/services"
+import { getUserProfile } from "@/lib/services"
 import { useEffect, useState } from "react"
 import { currentUser } from "@/lib/production-data"
 import { Bell, X, ShieldAlert, Heart, MessageCircle, UserPlus, AtSign, Radio, ShieldCheck, User, Settings } from "lucide-react"
-import { collection, query, where, onSnapshot, limit, orderBy, doc } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { VerifiedBadge } from "@/components/verified-badge"
@@ -31,58 +30,27 @@ export function MobileHeader() {
   const [showModal, setShowModal] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [followingCount, setFollowingCount] = useState(0)
-  const [followersCount, setFollowersCount] = useState(0)
 
   useEffect(() => {
     if (!user) return
 
-    // Unread count listener
-    const qUnread = query(
-      collection(db, "notifications"),
-      where("recipientId", "==", user.uid),
-      where("read", "==", false)
-    )
-    const unsubUnread = onSnapshot(qUnread, (snap) => {
-      setUnreadCount(snap.docs.length)
-    })
-
-    // Preview list listener
-    const qList = query(
-      collection(db, "notifications"),
-      where("recipientId", "==", user.uid)
-    )
-    const unsubList = onSnapshot(qList, async (snap) => {
-      const items: NotificationItem[] = []
-      for (const d of snap.docs) {
-        const data = d.data()
-        const senderProfile = await getUserProfile(data.senderId || "guest")
-        items.push({
-          id: d.id,
-          recipientId: data.recipientId,
-          senderId: data.senderId,
-          type: data.type,
-          text: data.text,
-          read: Boolean(data.read),
-          createdAt: data.createdAt,
-          senderProfile,
-        })
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch("/api/notifications")
+        if (res.ok) {
+          const list = await res.json()
+          setNotifications(list.slice(0, 5))
+          setUnreadCount(list.filter((n: any) => !n.read).length)
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err)
       }
-      
-      // Sort client-side
-      items.sort((a, b) => {
-        const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()
-        const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()
-        return timeB - timeA
-      })
-
-      setNotifications(items.slice(0, 5)) // Get latest 5 for preview
-    })
-
-    return () => {
-      unsubUnread()
-      unsubList()
     }
+
+    void fetchNotifications()
+    const interval = setInterval(fetchNotifications, 15000)
+
+    return () => clearInterval(interval)
   }, [user])
 
   const userToShow = authProfile || (user ? {
@@ -94,26 +62,8 @@ export function MobileHeader() {
     verifiedBadge: null
   } : currentUser)
 
-  useEffect(() => {
-    if (!userToShow?.uid) return
-
-    // Real-time followers count listener
-    const qFollowers = query(collection(db, "follows"), where("followeeUid", "==", userToShow.uid))
-    const unsubFollowers = onSnapshot(qFollowers, (snap) => {
-      setFollowersCount(snap.size)
-    })
-
-    // Real-time following count listener
-    const qFollowing = query(collection(db, "follows"), where("followerUid", "==", userToShow.uid))
-    const unsubFollowing = onSnapshot(qFollowing, (snap) => {
-      setFollowingCount(snap.size)
-    })
-
-    return () => {
-      unsubFollowers()
-      unsubFollowing()
-    }
-  }, [userToShow?.uid])
+  const followersCount = userToShow.followersCount || 0
+  const followingCount = userToShow.followingCount || 0
 
   const getIcon = (type: string) => {
     switch (type) {

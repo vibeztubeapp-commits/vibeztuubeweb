@@ -7,8 +7,8 @@ import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
 import { RightRail } from "@/components/shell/right-rail"
 import { Button } from "@/components/ui/button"
 import { VerifiedBadge } from "@/components/verified-badge"
-import { db, getUserProfile, updateUserProfile } from "@/lib/services"
-import { doc, onSnapshot } from "firebase/firestore"
+import { getUserProfile, updateUserProfile } from "@/lib/services"
+// Cleaned Firestore imports
 import { ShieldCheck, Loader2 } from "lucide-react"
 
 export default function GetVerifiedPage() {

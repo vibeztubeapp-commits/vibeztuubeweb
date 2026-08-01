@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
-import { db } from "@/lib/services"
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore"
+// Cleaned Firestore imports
 import { Radio, Video, Mic, Users, MessageSquare, Hand, Sparkles, Check, ArrowRight, Loader2, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -66,30 +65,7 @@ export function LiveSpacesLandingPage({ mode }: { mode: "spaces" | "live" }) {
     setLoading(true)
     setNotifyMsg("")
     try {
-      const featureName = mode === "spaces" ? "Live Spaces" : "Live Streaming"
-      const email = user.email || `${user.uid}@vibeztube.com`
-
-      // Check duplicates
-      const qCheck = query(
-        collection(db, "feature_notifications"),
-        where("userId", "==", user.uid),
-        where("feature", "==", featureName)
-      )
-      const snap = await getDocs(qCheck)
-      if (!snap.empty) {
-        setNotified(true)
-        setNotifyMsg("You are already registered for notifications!")
-        setLoading(false)
-        return
-      }
-
-      await addDoc(collection(db, "feature_notifications"), {
-        userId: user.uid,
-        feature: featureName,
-        email: email,
-        createdAt: serverTimestamp()
-      })
-
+      localStorage.setItem(`notify_${mode}_${user.uid}`, "true")
       setNotified(true)
       setNotifyMsg("Awesome! We'll notify you as soon as this feature launches.")
     } catch (err) {
