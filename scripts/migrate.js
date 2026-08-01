@@ -1,5 +1,4 @@
 const { PrismaClient } = require("@prisma/client")
-const admin = require("firebase-admin")
 const fs = require("fs")
 const path = require("path")
 
@@ -20,8 +19,8 @@ if (!fs.existsSync(serviceAccountPath)) {
 }
 
 const serviceAccount = require(serviceAccountPath)
-const { cert } = require("firebase-admin")
-admin.initializeApp({
+const { initializeApp, cert } = require("firebase-admin/app")
+initializeApp({
   credential: cert(serviceAccount),
 })
 
