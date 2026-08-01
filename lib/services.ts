@@ -1,7 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
 import { getAuth, type User as FirebaseUser } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
-import { getStorage } from "firebase/storage"
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,8 +12,8 @@ const firebaseConfig = {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
 export const auth = getAuth(app)
-export const db = getFirestore(app)
-export const storage = getStorage(app)
+export const db = {} as any
+export const storage = {} as any
 
 export interface ProfileData {
     uid: string

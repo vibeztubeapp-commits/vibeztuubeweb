@@ -51,14 +51,11 @@ export default function OnboardingPage() {
     if (screen === 3 && user) {
       const loadSuggestions = async () => {
         try {
-          const q = query(collection(db, "profiles"), limit(10))
-          const snap = await getDocs(q)
-          const list = snap.docs
-            .map((d) => ({ uid: d.id, ...d.data() }))
-            .filter((p: any) => p.uid !== user.uid)
+          const res = await fetch("/api/users/suggestions")
+          if (!res.ok) throw new Error("Failed to load suggestions")
+          const list = await res.json()
           
           if (list.length === 0) {
-            // Fallback default suggestions
             setSuggestedUsers([
               { uid: "mkbhd", displayName: "Marques Brownlee", username: "mkbhd", bio: "Tech reviewer, ultimate frisbee player.", avatarColor: "oklch(0.6 0.25 20)" },
               { uid: "mrbeast", displayName: "MrBeast", username: "mrbeast", bio: "Creating wild videos and helping people.", avatarColor: "oklch(0.55 0.2 200)" },
@@ -66,7 +63,7 @@ export default function OnboardingPage() {
               { uid: "elonmusk", displayName: "Elon Musk", username: "elonmusk", bio: "Tesla, SpaceX, xAI, Neuralink.", avatarColor: "oklch(0.4 0.1 220)" },
             ])
           } else {
-            setSuggestedUsers(list)
+            setSuggestedUsers(list.filter((p: any) => p.uid !== user.uid))
           }
         } catch (e) {
           console.error("Failed suggestions load", e)
