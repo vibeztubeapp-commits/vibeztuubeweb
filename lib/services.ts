@@ -190,7 +190,7 @@ export async function updateUserProfile(arg1: string | Partial<ProfileData>, arg
     return await response.json()
 }
 
-export async function uploadToCloudinary(file: File, folder?: string, onProgress?: (percent: number) => void) {
+export async function uploadToMinIO(file: File, folder?: string, onProgress?: (percent: number) => void) {
     const formData = new FormData()
     formData.append("file", file)
     const response = await fetch("/api/upload", {

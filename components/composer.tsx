@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { db, getUserProfile, createPost, uploadToCloudinary } from "@/lib/services"
+import { db, getUserProfile, createPost, uploadToMinIO } from "@/lib/services"
 import { ImageIcon, Clapperboard, Radio, Smile, MapPin, Globe, Loader2, X, Plus, Camera, FolderOpen, Shield, BellRing, Navigation } from "lucide-react"
 import { UserAvatar } from "@/components/user-avatar"
 import { Button } from "@/components/ui/button"
@@ -77,7 +77,7 @@ export function Composer({ compact = false, onPostSuccess }: { compact?: boolean
       const uploads = files.map(async (file) => {
         const isVideo = file.type.startsWith("video/")
         const type = isVideo ? "video" : "image"
-        const src = await uploadToCloudinary(file, "vibeztube", (percent) => {
+        const src = await uploadToMinIO(file, "vibeztube", (percent) => {
           setUploadProgress(percent)
         })
         return { type, src, name: file.name }

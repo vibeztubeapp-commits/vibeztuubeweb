@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Camera, Eye, EyeOff, Mail, Lock, User, CalendarDays, AtSign } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { isUsernameAvailable, reserveUsername, uploadToCloudinary } from "@/lib/services"
+import { isUsernameAvailable, reserveUsername, uploadToMinIO } from "@/lib/services"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -143,10 +143,10 @@ export default function RegisterPage() {
             let avatarUrl: string | undefined
             if (avatarFile) {
                 try {
-                    const res = await uploadToCloudinary(avatarFile)
+                    const res = await uploadToMinIO(avatarFile)
                     if (typeof res === "string") avatarUrl = res
                 } catch (err) {
-                    console.error("Cloudinary upload failed", err)
+                    console.error("MinIO upload failed", err)
                 }
             }
 

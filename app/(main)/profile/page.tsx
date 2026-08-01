@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
 import { PostCard } from "@/components/post-card"
-import { db, getUserProfile, updateUserProfile, uploadToCloudinary, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
+import { db, getUserProfile, updateUserProfile, uploadToMinIO, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
 import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp, collectionGroup } from "firebase/firestore"
 import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing, MessageSquare } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
@@ -208,7 +208,7 @@ function ProfileView() {
     if (!file) return
     setUploadingAvatar(true)
     try {
-      const url = await uploadToCloudinary(file)
+      const url = await uploadToMinIO(file)
       setEditAvatarUrl(url)
     } catch (err) {
       console.error(err)
@@ -223,7 +223,7 @@ function ProfileView() {
     if (!file) return
     setUploadingBanner(true)
     try {
-      const url = await uploadToCloudinary(file)
+      const url = await uploadToMinIO(file)
       setEditBannerUrl(url)
     } catch (err) {
       console.error(err)
