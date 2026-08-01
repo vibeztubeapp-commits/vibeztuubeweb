@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { createSession } from "@/lib/auth-session"
 
 export async function POST(req: Request) {
   try {
@@ -149,6 +150,8 @@ export async function POST(req: Request) {
         verifiedBadge: "",
       },
     })
+
+    await createSession(user.id)
 
     return NextResponse.json(user)
   } catch (err: any) {

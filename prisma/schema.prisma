@@ -16,6 +16,7 @@ model User {
   bio            String?
   avatarUrl      String?
   verifiedBadge  String?        // "gray" -> Premium Blue+, "blue" -> Premium Standard, etc.
+  passwordHash   String?
   followersCount Int            @default(0)
   followingCount Int            @default(0)
   createdAt      DateTime       @default(now())

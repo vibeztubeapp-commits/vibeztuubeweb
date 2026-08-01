@@ -4,37 +4,23 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
     browserLocalPersistence,
-    createUserWithEmailAndPassword,
     GoogleAuthProvider,
     onAuthStateChanged,
-    sendEmailVerification,
-    sendPasswordResetEmail,
-    setPersistence,
-    signInWithEmailAndPassword,
-    signInWithPhoneNumber,
-    signInWithPopup,
     signOut as firebaseSignOut,
-    type ConfirmationResult,
+    signInWithPopup,
     type User as FirebaseUser,
-    PhoneAuthProvider,
-    signInWithCredential,
-    RecaptchaVerifier,
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { ensureProfile, confirmUsernameReservation } from "@/lib/services"
+import { ensureProfile } from "@/lib/services"
 import type { ProfileData } from "@/lib/services"
 
 type AuthContextValue = {
-    user: FirebaseUser | null
+    user: any | null
     profile: ProfileData | null
     loading: boolean
-    signInWithEmail: (email: string, password: string) => Promise<void>
-    signUpWithEmail: (email: string, password: string, profileOverrides?: Partial<ProfileData>) => Promise<void>
+    signInWithEmail: (emailOrUsername: string, password: string) => Promise<void>
+    signUpWithEmail: (email: string, username: string, password: string, displayName?: string, avatarUrl?: string) => Promise<void>
     signInWithGoogle: () => Promise<void>
-    startPhoneSignIn: (phoneNumber: string) => Promise<ConfirmationResult>
-    confirmPhoneCode: (code: string) => Promise<void>
-    resetPassword: (email: string) => Promise<void>
-    verifyEmail: () => Promise<void>
     signOut: () => Promise<void>
 }
 
@@ -42,92 +28,141 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter()
-    const [user, setUser] = useState<FirebaseUser | null>(null)
+    const [user, setUser] = useState<any | null>(null)
     const [profile, setProfile] = useState<ProfileData | null>(null)
     const [loading, setLoading] = useState(true)
-    const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null)
 
+    // Load active session from cookie on load
     useEffect(() => {
-        const persistAuth = async () => {
-            await setPersistence(auth, browserLocalPersistence)
-        }
-
-        void persistAuth()
-
-        const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-            setUser(nextUser)
-            if (nextUser) {
-                const prof = await ensureProfile(nextUser)
-                setProfile(prof)
-            } else {
-                setProfile(null)
+        const initSession = async () => {
+            try {
+                const res = await fetch("/api/auth/session")
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data) {
+                        setProfile(data)
+                        setUser({
+                            uid: data.uid,
+                            displayName: data.displayName,
+                            email: data.email,
+                            photoURL: data.avatarUrl,
+                        })
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to initialize session:", err)
+            } finally {
+                setLoading(false)
             }
-            setLoading(false)
+        }
+        void initSession()
+
+        // Maintain Google/OAuth listener
+        const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+            if (nextUser) {
+                try {
+                    const prof = await ensureProfile(nextUser)
+                    setProfile(prof)
+                    setUser({
+                        uid: nextUser.uid,
+                        displayName: nextUser.displayName || prof.displayName,
+                        email: nextUser.email || prof.email,
+                        photoURL: nextUser.photoURL || prof.avatarUrl,
+                    })
+                } catch (err) {
+                    console.error("Error syncing Google OAuth user:", err)
+                }
+            }
         })
 
         return () => unsubscribe()
     }, [])
 
-    const signInWithEmail = async (email: string, password: string) => {
-        await signInWithEmailAndPassword(auth, email, password)
+    const signInWithEmail = async (emailOrUsername: string, password: string) => {
+        const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emailOrUsername, password }),
+        })
+
+        if (!res.ok) {
+            const data = await res.json()
+            throw new Error(data.error || "Login failed")
+        }
+
+        const data = await res.json()
+        const prof: ProfileData = {
+            uid: data.id,
+            username: data.username,
+            displayName: data.displayName,
+            avatarUrl: data.avatarUrl,
+            bio: data.bio,
+            verifiedBadge: data.verifiedBadge,
+        }
+        setProfile(prof)
+        setUser({
+            uid: data.id,
+            displayName: data.displayName,
+            email: data.email,
+            photoURL: data.avatarUrl,
+        })
         router.replace("/")
     }
 
-    const signUpWithEmail = async (email: string, password: string, profileOverrides: Partial<ProfileData> = {}) => {
-        const result = await createUserWithEmailAndPassword(auth, email, password)
-        if (result.user) {
-            await ensureProfile(result.user, profileOverrides)
-            if (profileOverrides.username) {
-                try {
-                    await confirmUsernameReservation(profileOverrides.username, result.user.uid)
-                } catch (err) {
-                    console.error("Failed to confirm username reservation", err)
-                }
-            }
-            if (result.user.email) {
-                await sendEmailVerification(result.user)
-            }
-            router.replace("/onboarding")
+    const signUpWithEmail = async (email: string, username: string, password: string, displayName?: string, avatarUrl?: string) => {
+        const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, username, password, displayName, avatarUrl }),
+        })
+
+        if (!res.ok) {
+            const data = await res.json()
+            throw new Error(data.error || "Registration failed")
         }
+
+        const data = await res.json()
+        const prof: ProfileData = {
+            uid: data.id,
+            username: data.username,
+            displayName: data.displayName,
+            avatarUrl: data.avatarUrl,
+            bio: data.bio,
+            verifiedBadge: data.verifiedBadge,
+        }
+        setProfile(prof)
+        setUser({
+            uid: data.id,
+            displayName: data.displayName,
+            email: data.email,
+            photoURL: data.avatarUrl,
+        })
+        router.replace("/onboarding")
     }
 
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider()
-        await signInWithPopup(auth, provider)
-        router.replace("/")
-    }
-
-    const startPhoneSignIn = async (phoneNumber: string) => {
-        const appVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-            size: "invisible",
-        })
-        const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier)
-        setPhoneConfirmation(confirmation)
-        return confirmation
-    }
-
-    const confirmPhoneCode = async (code: string) => {
-        if (!phoneConfirmation) {
-            throw new Error("No phone confirmation in progress")
-        }
-
-        const credential = PhoneAuthProvider.credential(phoneConfirmation.verificationId, code)
-        await signInWithCredential(auth, credential)
-        router.replace("/")
-    }
-
-    const resetPassword = async (email: string) => {
-        await sendPasswordResetEmail(auth, email)
-    }
-
-    const verifyEmail = async () => {
-        if (auth.currentUser) {
-            await sendEmailVerification(auth.currentUser)
+        const result = await signInWithPopup(auth, provider)
+        if (result.user) {
+            const prof = await ensureProfile(result.user)
+            setProfile(prof)
+            setUser({
+                uid: result.user.uid,
+                displayName: result.user.displayName || prof.displayName,
+                email: result.user.email || prof.email,
+                photoURL: result.user.photoURL || prof.avatarUrl,
+            })
+            router.replace("/")
         }
     }
 
     const signOut = async () => {
-        await firebaseSignOut(auth)
+        await fetch("/api/auth/logout", { method: "POST" })
+        try {
+            await firebaseSignOut(auth)
+        } catch {}
+        setProfile(null)
+        setUser(null)
         router.replace("/login")
     }
 
@@ -139,18 +174,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             signInWithEmail,
             signUpWithEmail,
             signInWithGoogle,
-            startPhoneSignIn,
-            confirmPhoneCode,
-            resetPassword,
-            verifyEmail,
             signOut,
         }),
-        [user, profile, loading, phoneConfirmation],
+        [user, profile, loading],
     )
 
     return (
         <AuthContext.Provider value={value}>
-            <div id="recaptcha-container" />
             {children}
         </AuthContext.Provider>
     )

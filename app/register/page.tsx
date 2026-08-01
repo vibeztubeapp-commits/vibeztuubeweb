@@ -150,7 +150,7 @@ export default function RegisterPage() {
                 }
             }
 
-            await signUpWithEmail(email, password, { displayName, username, avatarUrl, dob, createdAt: undefined })
+            await signUpWithEmail(email, username, password, displayName, avatarUrl)
         } catch (error) {
             setMessage(cleanErrorMessage(error))
         } finally {
