@@ -107,21 +107,7 @@ export function PostCard({ post, priority }: { post: Post; priority?: boolean })
   const [optSaved, setOptSaved] = useState<boolean | null>(null)
   const [optBookmarksCount, setOptBookmarksCount] = useState<number | null>(null)
 
-  // Reset optimistic overrides when server state updates
-  useEffect(() => {
-    setOptLiked(null)
-    setOptLikesCount(null)
-  }, [liked])
 
-  useEffect(() => {
-    setOptReposted(null)
-    setOptRepostsCount(null)
-  }, [reposted])
-
-  useEffect(() => {
-    setOptSaved(null)
-    setOptBookmarksCount(null)
-  }, [saved])
 
   const currentLiked = optLiked !== null ? optLiked : liked
   const currentLikesCount = optLikesCount !== null ? optLikesCount : Number(displayPost.likes || 0)
