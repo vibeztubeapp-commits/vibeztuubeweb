@@ -1,7 +1,7 @@
 const { S3Client, PutObjectCommand, HeadBucketCommand, CreateBucketCommand } = require("@aws-sdk/client-s3");
 
 const s3Client = new S3Client({
-  endpoint: "http://vibeztube_minio:9000",
+  endpoint: "http://localhost:9000",
   region: "us-east-1",
   credentials: {
     accessKeyId: "minioadmin",
