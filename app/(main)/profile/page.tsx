@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/user-avatar"
 import { PostCard } from "@/components/post-card"
-import { db, getUserProfile, updateUserProfile, uploadToMinIO, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
-import { collection, getDocs, query, where, orderBy, doc, getDoc, deleteDoc, onSnapshot, setDoc, serverTimestamp, collectionGroup } from "firebase/firestore"
+import { getUserProfile, updateUserProfile, uploadToMinIO, isUsernameAvailable, confirmUsernameReservation, followUser, unfollowUser } from "@/lib/services"
 import { CalendarDays, Link as LinkIcon, MapPin, Share2, Camera, X, Check, Loader2, UserPlus, UserCheck, Bell, BellRing, MessageSquare } from "lucide-react"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -46,18 +45,14 @@ function ProfileView() {
     setShowFollowsModal(true)
     setLoadingFollows(true)
     setFollowsList([])
-    
+
     try {
-      const q = query(
-        collection(db, "follows"),
-        where(type === "followers" ? "followeeUid" : "followerUid", "==", targetUid)
-      )
-      const snap = await getDocs(q)
+      const res = await fetch(`/api/users/${targetUid}/follows?type=${type}`)
+      if (!res.ok) throw new Error("Failed to load follows")
+      const uids = await res.json()
       const list: any[] = []
-      
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data()
-        const otherUid = type === "followers" ? data.followerUid : data.followeeUid
+
+      for (const otherUid of uids) {
         if (otherUid) {
           const profileData = await getUserProfile(otherUid)
           if (profileData) {
@@ -94,15 +89,12 @@ function ProfileView() {
 
   const handleSubscribeToggle = async () => {
     if (!user || !targetUid) return
-    const subRef = doc(db, "subscriptions", `${user.uid}_${targetUid}`)
     try {
-      if (subscribed) {
-        await deleteDoc(subRef)
-      } else {
-        await setDoc(subRef, { followerUid: user.uid, creatorUid: targetUid, enabled: true, createdAt: serverTimestamp() })
-      }
+      setSubscribed((prev) => !prev)
+      await followUser(targetUid)
     } catch (err) {
       console.error(err)
+      setSubscribed((prev) => !prev)
     }
   }
 
@@ -134,7 +126,7 @@ function ProfileView() {
   const [editWebsite, setEditWebsite] = useState("")
   const [editAvatarUrl, setEditAvatarUrl] = useState("")
   const [editBannerUrl, setEditBannerUrl] = useState("")
-  
+
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -239,23 +231,23 @@ function ProfileView() {
     try {
       const originalUsername = profile.username || ""
       const cleanNewUsername = editUsername.trim().replace(/^@/, "").toLowerCase()
-      
+
       if (cleanNewUsername !== originalUsername) {
         if (cleanNewUsername.length < 3) {
           alert("Handle must be at least 3 characters long")
           setSaving(false)
           return
         }
-        
+
         const available = await isUsernameAvailable(cleanNewUsername)
         if (!available) {
           alert("That handle is already taken. Please try another one.")
           setSaving(false)
           return
         }
-        
+
         await confirmUsernameReservation(cleanNewUsername, user.uid)
-        
+
         // Reservation deletion bypassed for local DB integration
       }
 
@@ -426,11 +418,10 @@ function ProfileView() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-sm font-semibold capitalize transition-all border-b-2 text-center min-w-[80px] cursor-pointer ${
-                  activeTab === tab
+                className={`flex-1 py-3 text-sm font-semibold capitalize transition-all border-b-2 text-center min-w-[80px] cursor-pointer ${activeTab === tab
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:bg-accent/40"
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -675,7 +666,7 @@ function ProfileView() {
               ) : followsList.length > 0 ? (
                 <div className="divide-y divide-border/40">
                   {followsList.map((u) => (
-                    <div 
+                    <div
                       key={u.uid || u.id}
                       onClick={() => {
                         setShowFollowsModal(false)

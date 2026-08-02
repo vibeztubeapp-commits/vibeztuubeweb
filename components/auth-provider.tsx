@@ -19,7 +19,7 @@ type AuthContextValue = {
     profile: ProfileData | null
     loading: boolean
     signInWithEmail: (emailOrUsername: string, password: string) => Promise<void>
-    signUpWithEmail: (email: string, username: string, password: string, displayName?: string, avatarUrl?: string) => Promise<void>
+    signUpWithEmail: (email: string, username: string, password: string, displayName?: string, avatarUrl?: string, dob?: string) => Promise<void>
     signInWithGoogle: () => Promise<void>
     signOut: () => Promise<void>
 }
@@ -32,6 +32,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<ProfileData | null>(null)
     const [loading, setLoading] = useState(true)
 
+    const applySessionUser = async (data: any) => {
+        if (!data) return
+        setProfile(data)
+        setUser({
+            uid: data.uid,
+            displayName: data.displayName,
+            email: data.email,
+            photoURL: data.avatarUrl,
+        })
+    }
+
     // Load active session from cookie on load
     useEffect(() => {
         const initSession = async () => {
@@ -40,13 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (res.ok) {
                     const data = await res.json()
                     if (data) {
-                        setProfile(data)
-                        setUser({
-                            uid: data.uid,
-                            displayName: data.displayName,
-                            email: data.email,
-                            photoURL: data.avatarUrl,
-                        })
+                        await applySessionUser(data)
                     }
                 }
             } catch (err) {
@@ -71,6 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
 
                     const prof = await ensureProfile(nextUser)
+                    const sessionRes = await fetch("/api/auth/session")
+                    if (sessionRes.ok) {
+                        const sessionUser = await sessionRes.json()
+                        if (sessionUser) {
+                            await applySessionUser(sessionUser)
+                            return
+                        }
+                    }
                     setProfile(prof)
                     setUser({
                         uid: nextUser.uid,
@@ -118,11 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.replace("/")
     }
 
-    const signUpWithEmail = async (email: string, username: string, password: string, displayName?: string, avatarUrl?: string) => {
+    const signUpWithEmail = async (email: string, username: string, password: string, displayName?: string, avatarUrl?: string, dob?: string) => {
         const res = await fetch("/api/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, username, password, displayName, avatarUrl }),
+            body: JSON.stringify({ email, username, password, displayName, avatarUrl, dob }),
         })
 
         if (!res.ok) {
@@ -154,6 +167,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const result = await signInWithPopup(auth, provider)
         if (result.user) {
             const prof = await ensureProfile(result.user)
+            const sessionRes = await fetch("/api/auth/session")
+            if (sessionRes.ok) {
+                const sessionUser = await sessionRes.json()
+                if (sessionUser) {
+                    await applySessionUser(sessionUser)
+                    router.replace("/")
+                    return
+                }
+            }
             setProfile(prof)
             setUser({
                 uid: result.user.uid,
@@ -169,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetch("/api/auth/logout", { method: "POST" })
         try {
             await firebaseSignOut(auth)
-        } catch {}
+        } catch { }
         setProfile(null)
         setUser(null)
         router.replace("/login")

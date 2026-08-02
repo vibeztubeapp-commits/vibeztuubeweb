@@ -65,7 +65,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_BUCKET=vibeztube-bucket
-      - NEXT_PUBLIC_MINIO_EXTERNAL_URL=
+      - NEXT_PUBLIC_MINIO_EXTERNAL_URL=http://141.136.42.233:3000
     networks:
       - vibeztube_net
 

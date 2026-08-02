@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { FeedColumn, PageHeaderTitle } from "@/components/shell/feed-column"
 import { Button } from "@/components/ui/button"
-import { collection, getDocs, limit, query, where, doc, updateDoc } from "firebase/firestore"
-import { db, followUser } from "@/lib/services"
+import { followUser, updateUserProfile } from "@/lib/services"
 import { UserAvatar } from "@/components/user-avatar"
 import { Check, CheckCircle2, ChevronRight, UserPlus, UserCheck } from "lucide-react"
 
@@ -54,7 +53,7 @@ export default function OnboardingPage() {
           const res = await fetch("/api/users/suggestions")
           if (!res.ok) throw new Error("Failed to load suggestions")
           const list = await res.json()
-          
+
           if (list.length === 0) {
             setSuggestedUsers([
               { uid: "mkbhd", displayName: "Marques Brownlee", username: "mkbhd", bio: "Tech reviewer, ultimate frisbee player.", avatarColor: "oklch(0.6 0.25 20)" },
@@ -110,9 +109,7 @@ export default function OnboardingPage() {
       if (!user) return
       setLoading(true)
       try {
-        // Save onboarding details to user profile
-        const userRef = doc(db, "profiles", user.uid)
-        await updateDoc(userRef, {
+        await updateUserProfile(user.uid, {
           interests: selectedInterests,
           topics: selectedTopics,
           onboarded: true,
@@ -151,11 +148,10 @@ export default function OnboardingPage() {
                     <button
                       key={interest}
                       onClick={() => toggleInterest(interest)}
-                      className={`relative flex h-24 flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all cursor-pointer ${
-                        isSelected
+                      className={`relative flex h-24 flex-col items-center justify-center rounded-2xl border p-4 text-center transition-all cursor-pointer ${isSelected
                           ? "border-primary bg-primary/10 text-primary font-bold shadow-md scale-[1.02]"
                           : "border-border bg-card text-card-foreground hover:bg-accent"
-                      }`}
+                        }`}
                     >
                       {isSelected && (
                         <CheckCircle2 className="absolute right-2 top-2 h-4 w-4 text-primary animate-in zoom-in duration-200" />
@@ -182,11 +178,10 @@ export default function OnboardingPage() {
                     <button
                       key={topic}
                       onClick={() => toggleTopic(topic)}
-                      className={`px-4 py-2 rounded-full border text-xs transition-all cursor-pointer ${
-                        isSelected
+                      className={`px-4 py-2 rounded-full border text-xs transition-all cursor-pointer ${isSelected
                           ? "border-primary bg-primary text-primary-foreground font-bold"
                           : "border-border bg-card text-muted-foreground hover:bg-accent"
-                      }`}
+                        }`}
                     >
                       {topic}
                     </button>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getSessionUser } from "@/lib/auth-session"
 
 export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -29,6 +30,15 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       displayName: profile.displayName,
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
+      bannerUrl: profile.bannerUrl,
+      location: profile.location,
+      website: profile.website,
+      phoneNumber: profile.phoneNumber,
+      dob: profile.dob,
+      interests: profile.interests,
+      topics: profile.topics,
+      onboarded: profile.onboarded,
+      verified: profile.verified,
       email: profile.email,
       verifiedBadge: profile.verifiedBadge,
       followersCount: profile.followersCount,
@@ -43,17 +53,52 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
+    const sessionUserId = await getSessionUser()
+    if (!sessionUserId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
-    const { displayName, bio, avatarUrl, username, verifiedBadge } = body
+    const {
+      displayName,
+      bio,
+      avatarUrl,
+      bannerUrl,
+      location,
+      website,
+      phoneNumber,
+      dob,
+      username,
+      verified,
+      verifiedBadge,
+      underReview,
+      reviewBadge,
+      reviewStartedAt,
+      interests,
+      topics,
+      onboarded,
+    } = body
 
     const updated = await prisma.user.update({
-      where: { id: params.id },
+      where: { id: sessionUserId },
       data: {
         displayName: displayName !== undefined ? displayName : undefined,
         bio: bio !== undefined ? bio : undefined,
         avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined,
+        bannerUrl: bannerUrl !== undefined ? bannerUrl : undefined,
+        location: location !== undefined ? location : undefined,
+        website: website !== undefined ? website : undefined,
+        phoneNumber: phoneNumber !== undefined ? phoneNumber : undefined,
+        dob: dob !== undefined ? dob : undefined,
         username: username !== undefined ? username : undefined,
+        verified: verified !== undefined ? verified : undefined,
         verifiedBadge: verifiedBadge !== undefined ? verifiedBadge : undefined,
+        underReview: underReview !== undefined ? underReview : undefined,
+        reviewBadge: reviewBadge !== undefined ? reviewBadge : undefined,
+        reviewStartedAt: reviewStartedAt !== undefined ? (reviewStartedAt ? new Date(reviewStartedAt) : null) : undefined,
+        interests: interests !== undefined ? interests : undefined,
+        topics: topics !== undefined ? topics : undefined,
+        onboarded: onboarded !== undefined ? onboarded : undefined,
       },
     })
 
@@ -63,6 +108,15 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
       displayName: updated.displayName,
       bio: updated.bio,
       avatarUrl: updated.avatarUrl,
+      bannerUrl: updated.bannerUrl,
+      location: updated.location,
+      website: updated.website,
+      phoneNumber: updated.phoneNumber,
+      dob: updated.dob,
+      interests: updated.interests,
+      topics: updated.topics,
+      onboarded: updated.onboarded,
+      verified: updated.verified,
       verifiedBadge: updated.verifiedBadge,
       followersCount: updated.followersCount,
       followingCount: updated.followingCount,

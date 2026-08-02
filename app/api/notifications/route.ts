@@ -43,11 +43,22 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const userId = await getSessionUser()
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await req.json().catch(() => ({}))
+    const action = body.action || "readAll"
+
+    if (action === "readOne" && body.notificationId) {
+      await prisma.notification.updateMany({
+        where: { id: body.notificationId, recipientId: userId },
+        data: { read: true },
+      })
+      return NextResponse.json({ success: true })
     }
 
     await prisma.notification.updateMany({

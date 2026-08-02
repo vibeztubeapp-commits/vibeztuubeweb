@@ -15,7 +15,19 @@ model User {
   email          String?
   bio            String?
   avatarUrl      String?
+  bannerUrl      String?
+  location       String?
+  website        String?
+  phoneNumber    String?
+  dob            String?
+  interests      String[]       @default([])
+  topics         String[]       @default([])
+  onboarded      Boolean        @default(false)
+  verified       Boolean        @default(false)
   verifiedBadge  String?        // "gray" -> Premium Blue+, "blue" -> Premium Standard, etc.
+  underReview    Boolean        @default(false)
+  reviewBadge    String?
+  reviewStartedAt DateTime?
   passwordHash   String?
   followersCount Int            @default(0)
   followingCount Int            @default(0)

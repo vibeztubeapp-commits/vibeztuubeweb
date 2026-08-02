@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid"
 
 export async function POST(req: Request) {
   try {
-    const { email, username, password, displayName, avatarUrl } = await req.json()
+    const { email, username, password, displayName, avatarUrl, dob } = await req.json()
 
     if (!email || !username || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         email: cleanEmail,
         passwordHash,
         avatarUrl: avatarUrl || "",
+        dob: dob || null,
         bio: "",
         verifiedBadge: "",
       }

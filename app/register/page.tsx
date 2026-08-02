@@ -31,13 +31,13 @@ const years = Array.from({ length: 110 }, (_, i) => String(currentYear - i))
 function cleanErrorMessage(error: any): string {
     if (!error) return "An unexpected error occurred. Please try again."
     const errStr = error.code || (error.message ? String(error.message) : String(error))
-    
+
     if (errStr.includes("auth/network-request-failed") || errStr.includes("network-request-failed")) {
         return "Network connection lost. Please check your internet connection and try again."
     }
     if (
-        errStr.includes("auth/invalid-credential") || 
-        errStr.includes("auth/user-not-found") || 
+        errStr.includes("auth/invalid-credential") ||
+        errStr.includes("auth/user-not-found") ||
         errStr.includes("auth/wrong-password") ||
         errStr.includes("auth/invalid-email")
     ) {
@@ -55,7 +55,7 @@ function cleanErrorMessage(error: any): string {
     if (errStr.includes("auth/user-disabled")) {
         return "This account has been disabled. Please contact support."
     }
-    
+
     let clean = error.message || String(error)
     clean = clean.replace(/^firebase:\s*/gi, "")
     clean = clean.replace(/FirebaseError:\s*/gi, "")
@@ -150,7 +150,7 @@ export default function RegisterPage() {
                 }
             }
 
-            await signUpWithEmail(email, username, password, displayName, avatarUrl)
+            await signUpWithEmail(email, username, password, displayName, avatarUrl, dob)
         } catch (error) {
             setMessage(cleanErrorMessage(error))
         } finally {
@@ -306,9 +306,9 @@ export default function RegisterPage() {
                         Already have an account? <Link href="/login" className="text-primary">Sign in</Link>
                     </p>
                     {message ? <p className="text-sm text-muted-foreground text-center">{message}</p> : null}
-                    
+
                     <p className="mt-8 text-[10px] text-muted-foreground text-center leading-relaxed px-4">
-                      By continuing, you agree to our Terms, Privacy Policy and Cookie Use.
+                        By continuing, you agree to our Terms, Privacy Policy and Cookie Use.
                     </p>
                 </div>
             </div>

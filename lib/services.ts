@@ -74,7 +74,7 @@ export async function createPost(input: { authorId: string; text: string; media?
 }
 
 export async function toggleLikePost(postId: string, currentLikedState: boolean) {
-    const uid = auth.currentUser?.uid
+    const uid = await getSessionUserId()
     if (!uid) return
     const response = await fetch(`/api/posts/${postId}`, {
         method: "POST",
@@ -85,7 +85,7 @@ export async function toggleLikePost(postId: string, currentLikedState: boolean)
 }
 
 export async function toggleRepostPost(postId: string, currentRepostedState: boolean) {
-    const uid = auth.currentUser?.uid
+    const uid = await getSessionUserId()
     if (!uid) return
     const response = await fetch(`/api/posts/${postId}`, {
         method: "POST",
@@ -96,7 +96,7 @@ export async function toggleRepostPost(postId: string, currentRepostedState: boo
 }
 
 export async function toggleBookmarkPost(postId: string, currentBookmarkedState: boolean) {
-    const uid = auth.currentUser?.uid
+    const uid = await getSessionUserId()
     if (!uid) return
     const response = await fetch(`/api/posts/${postId}`, {
         method: "POST",
@@ -107,7 +107,7 @@ export async function toggleBookmarkPost(postId: string, currentBookmarkedState:
 }
 
 export async function incrementPostViews(postId: string) {
-    const uid = auth.currentUser?.uid || "anonymous"
+    const uid = (await getSessionUserId()) || "anonymous"
     await fetch(`/api/posts/${postId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -116,7 +116,7 @@ export async function incrementPostViews(postId: string) {
 }
 
 export async function followUser(targetUid: string) {
-    const uid = auth.currentUser?.uid
+    const uid = await getSessionUserId()
     if (!uid) return
     const response = await fetch(`/api/users/${targetUid}/follow`, {
         method: "POST",
@@ -178,8 +178,19 @@ export function subscribeFollowingPosts(uid: string, callback: (posts: any[]) =>
     return () => clearInterval(interval)
 }
 
+async function getSessionUserId() {
+    try {
+        const response = await fetch("/api/auth/session")
+        if (!response.ok) return null
+        const data = await response.json()
+        return data?.uid || null
+    } catch {
+        return null
+    }
+}
+
 export async function updateUserProfile(arg1: string | Partial<ProfileData>, arg2?: Partial<ProfileData>) {
-    const uid = typeof arg1 === "string" ? arg1 : auth.currentUser?.uid
+    const uid = typeof arg1 === "string" ? arg1 : await getSessionUserId()
     const data = typeof arg1 === "string" ? arg2 : arg1
     if (!uid || !data) return null
     const response = await fetch(`/api/users/${uid}`, {
